@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -25,25 +26,44 @@ public class CharaController : MonoBehaviour
     [SerializeField] private float m_maxJumpHoldTime = 0.25f;
     [SerializeField] private float m_fallMultiplier = 2.5f;
 
+    [Header("Fil")]
+    [SerializeField] private GameObject m_filPrefab;
+    [SerializeField] private int m_maxFil = 3;
+
+    [Header("Fil Aim")]
+    [SerializeField] private LayerMask m_anchorLayer;
+    [SerializeField] private float m_maxAimDistance = 20f;
+
     [Header("Input")]
     [SerializeField] private InputActionReference m_moveInput;
     [SerializeField] private InputActionReference m_runInput;
     [SerializeField] private InputActionReference m_jumpInput;
+    [SerializeField] private InputActionReference m_filAimInput;
+    [SerializeField] private InputActionReference m_clickInput;
+
+    private List<GameObject> m_spawnedFils = new List<GameObject>();
 
     private Vector3 m_moveDirection;
+
     private bool m_isGrounded;
     private bool m_isJumping;
+    private bool m_onFil;
+    private bool m_isAiming;
+
     private float m_jumpTimer;
     private float m_currentSpeed;
-
     private float m_gravity;
     private float m_jumpVelocity;
+
+    private Vector3? m_firstPoint;
 
     void Start()
     {
         m_moveInput.action.Enable();
         m_runInput.action.Enable();
         m_jumpInput.action.Enable();
+        m_filAimInput.action.Enable();
+        m_clickInput.action.Enable();
 
         m_gravity = (-2f * m_jumpHeight) / Mathf.Pow(m_jumpTimeToApex, 2);
         m_jumpVelocity = (2f * m_jumpHeight) / m_jumpTimeToApex;
@@ -55,6 +75,7 @@ public class CharaController : MonoBehaviour
         UpdateSpeed();
         HandleRotation();
         HandleJumpInput();
+        HandleFilAim();
     }
 
     void FixedUpdate()
@@ -63,6 +84,8 @@ public class CharaController : MonoBehaviour
         HandleMovement();
         ApplyGravity();
     }
+
+    // INPUT
 
     private void HandleInput()
     {
@@ -76,6 +99,8 @@ public class CharaController : MonoBehaviour
 
         m_moveDirection = (camForward.normalized * input.y + camRight.normalized * input.x).normalized;
     }
+
+    // MOVEMENT
 
     private void HandleMovement()
     {
@@ -106,14 +131,19 @@ public class CharaController : MonoBehaviour
 
     private void UpdateSpeed()
     {
-        bool isRunning = m_runInput.action.IsPressed();
+        bool isRunning = m_runInput.action.IsPressed() && m_moveDirection.sqrMagnitude > 0.1f;
 
         float targetSpeed = isRunning ? m_runSpeed : m_walkSpeed;
 
-        m_currentSpeed = Mathf.Lerp(m_currentSpeed, targetSpeed, Time.deltaTime * m_speedSmooth);
+        if (m_onFil)
+        {
+            targetSpeed *= 0.5f;
+        }
 
-        //m_anim.SetFloat("Run", m_rb.linearVelocity.magnitude);
+        m_currentSpeed = Mathf.Lerp(m_currentSpeed, targetSpeed, Time.deltaTime * m_speedSmooth);
     }
+
+    // JUMP
 
     private void HandleJumpInput()
     {
@@ -148,8 +178,6 @@ public class CharaController : MonoBehaviour
 
         m_isJumping = true;
         m_jumpTimer = 0;
-
-        //if (m_anim) m_anim.SetTrigger("Jump");
     }
 
     private void ApplyGravity()
@@ -171,6 +199,82 @@ public class CharaController : MonoBehaviour
         if (m_isGrounded)
         {
             m_isJumping = false;
+        }
+    }
+
+    // FIL SYSTEM (AIM 2 POINTS)
+
+    private void HandleFilAim()
+    {
+        m_isAiming = m_filAimInput.action.IsPressed();
+
+        if (!m_isAiming)
+        {
+            m_firstPoint = null;
+            return;
+        }
+
+        if (m_clickInput.action.WasPressedThisFrame())
+        {
+            TrySelectPoint();
+        }
+    }
+
+    private void TrySelectPoint()
+    {
+        Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+        RaycastHit hit;
+
+        Debug.DrawRay(ray.origin, ray.direction * m_maxAimDistance, Color.red, 1f);
+
+        if (Physics.Raycast(ray, out hit, m_maxAimDistance, m_anchorLayer))
+        {
+            if (m_firstPoint == null)
+            {
+                m_firstPoint = hit.point;
+                Debug.Log("Point A sélectionne");
+            }
+            else
+            {
+                CreateFil(m_firstPoint.Value, hit.point);
+                m_firstPoint = null;
+
+                Debug.Log("Fil cree");
+            }
+        }
+    }
+
+    private void CreateFil(Vector3 start, Vector3 end)
+    {
+        GameObject filObj = Instantiate(m_filPrefab);
+
+        Fil fil = filObj.GetComponent<Fil>();
+        fil.Init(start, end);
+
+        if (m_spawnedFils.Count >= m_maxFil)
+        {
+            Destroy(m_spawnedFils[0]);
+            m_spawnedFils.RemoveAt(0);
+        }
+
+        m_spawnedFils.Add(filObj);
+    }
+
+    // FIL COLLISION
+
+    private void OnCollisionStay(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Fil"))
+        {
+            m_onFil = true;
+        }
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Fil"))
+        {
+            m_onFil = false;
         }
     }
 }
