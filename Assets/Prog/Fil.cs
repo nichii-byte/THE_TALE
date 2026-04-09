@@ -4,22 +4,22 @@ public class Fil : MonoBehaviour
 {
     [SerializeField] private float m_thickness = 0.05f;
 
-    private Vector3 m_start;
-    private Vector3 m_end;
+    public Vector3 start;
+    public Vector3 end;
 
-    public void Init(Vector3 start, Vector3 end)
+    public void Init(Vector3 startPos, Vector3 endPos)
     {
-        m_start = start;
-        m_end = end;
+        start = startPos;
+        end = endPos;
 
         UpdateFil();
     }
 
     public void UpdateFil()
     {
-        Vector3 direction = m_end - m_start;
+        Vector3 direction = end - start;
 
-        transform.position = m_start + direction / 2f;
+        transform.position = start + direction / 2f;
         transform.up = direction.normalized;
 
         float distance = direction.magnitude;

@@ -3,18 +3,32 @@ using UnityEngine.InputSystem;
 
 public class CameraInput : MonoBehaviour
 {
-    public InputActionReference lookInput;
-    public float sensitivity = 2f;
+    [SerializeField] private InputActionReference lookInput;
+    [SerializeField] private float sensitivity = 2f;
 
     private Vector2 look;
 
-    public Vector2 GetLook()
+    private void OnEnable()
+    {
+        if (lookInput != null)
+        {
+            lookInput.action.Enable();
+        }
+    }
+
+    public Vector2 GetLookDelta()
     {
         return look;
     }
 
     private void Update()
     {
+        if (lookInput == null)
+        {
+            look = Vector2.zero;
+            return;
+        }
+
         look = lookInput.action.ReadValue<Vector2>() * sensitivity;
     }
 }
