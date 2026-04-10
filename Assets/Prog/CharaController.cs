@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using static TMPro.TMP_Compatibility;
 
 public class CharaController : MonoBehaviour
 {
@@ -84,6 +86,8 @@ public class CharaController : MonoBehaviour
     private SwingRope m_currentSwingRope;
     private SpringJoint m_swingJoint;
 
+    private float m_anchorDistance = 0;
+
     public bool HasScissors { get; private set; }
     public int ThreadCount { get; private set; }
 
@@ -109,14 +113,16 @@ public class CharaController : MonoBehaviour
         UpdateSpeed();
         HandleRotation();
         HandleJumpInput();
-        HandleClimb();
+        //HandleClimb();
         HandleFilAim();
+        SetDamping();
     }
 
     void FixedUpdate()
     {
         CheckGround();
-        HandleSwingPhysics();
+        //HandleSwingPhysics();
+        HandleSwingCross();
         HandleMovement();
         ApplyGravity();
     }
@@ -195,6 +201,18 @@ public class CharaController : MonoBehaviour
         }
 
         m_currentSpeed = Mathf.Lerp(m_currentSpeed, targetSpeed, Time.deltaTime * m_speedSmooth);
+    }
+
+    private void SetDamping()
+    {
+        if (m_isSwinging)
+        {
+            m_rb.linearDamping = 0;
+        }
+        else
+        {
+            m_rb.linearDamping = 20;
+        }
     }
 
     // JUMP
@@ -330,7 +348,7 @@ public class CharaController : MonoBehaviour
             if (m_firstPoint == null)
             {
                 m_firstPoint = hit.point;
-                Debug.Log("Point A s�lectionne");
+                Debug.Log("Point A selectionne");
             }
             else
             {
@@ -340,6 +358,7 @@ public class CharaController : MonoBehaviour
                 Debug.Log("Fil cree");
             }
         }
+
         if (Physics.Raycast(ray, out hit, m_maxAimDistance))
         {
             PullableObject pullableObject = hit.collider.GetComponent<PullableObject>();
@@ -402,7 +421,8 @@ public class CharaController : MonoBehaviour
         {
             if (m_currentSwingRope != null && jumpPressed)
             {
-                StartSwing();
+                StartSwingCross();
+                //StartSwing();
             }
 
             return;
@@ -411,21 +431,8 @@ public class CharaController : MonoBehaviour
         if (jumpPressed)
         {
             StopSwing(true);
-        }
-    }
-
-    private void HandleSwingPhysics()
-    {
-        if (!m_isSwinging || m_swingJoint == null || m_currentSwingRope == null)
             return;
 
-        Vector3 anchorPosition = m_currentSwingRope.AnchorPosition;
-        Vector3 ropeDirection = (transform.position - anchorPosition).normalized;
-        Vector3 tangentDirection = Vector3.ProjectOnPlane(m_moveDirection, ropeDirection).normalized;
-
-        if (tangentDirection.sqrMagnitude > 0.001f)
-        {
-            m_rb.AddForce(tangentDirection * m_swingForce, ForceMode.Acceleration);
         }
     }
 
@@ -459,14 +466,78 @@ public class CharaController : MonoBehaviour
         transform.position = anchorPosition + anchorToPlayer.normalized * ropeLength;
 
         m_swingJoint.autoConfigureConnectedAnchor = false;
-        m_swingJoint.connectedBody = null;
-        m_swingJoint.connectedAnchor = anchorPosition;
+
         m_swingJoint.maxDistance = ropeLength;
-        m_swingJoint.minDistance = ropeLength * 0.95f;
-        m_swingJoint.spring = 0f;
-        m_swingJoint.damper = 0f;
+        m_swingJoint.minDistance = ropeLength * 0.9f; 
+        m_swingJoint.spring = 50f;    
+        m_swingJoint.damper = 5f;     
         m_swingJoint.tolerance = 0.02f;
         m_swingJoint.enableCollision = false;
+    }
+
+    private void StartSwingCross()
+    {
+        if (m_isSwinging) return;
+
+        //m_rb.useGravity = false;
+        m_rb.linearVelocity = Vector3.zero;
+
+        m_isSwinging = true;
+        m_anchorDistance = Vector3.Distance(transform.position, m_currentSwingRope.AnchorPosition);
+        //m_anchorDistance =  (m_currentSwingRope.AnchorPosition - transform.position).magnitude;
+    }
+
+    private void HandleSwingCross()
+    {
+        if (!m_isSwinging)
+            return;
+        Vector2 rawInput = m_moveInput.action.ReadValue<Vector2>();
+
+
+        Vector3 anchorPosition = m_currentSwingRope.AnchorPosition;
+        Vector3 anchorToPlayer = transform.position - anchorPosition;
+
+        Vector3 forwardSwing = Vector3.Cross(anchorToPlayer, Camera.main.transform.right).normalized;
+
+        Vector3 rightSwing = Vector3.Cross(anchorToPlayer, Camera.main.transform.forward).normalized;
+        m_rb.linearVelocity += (-rightSwing * m_swingForce * rawInput.x) + (forwardSwing * m_swingForce * rawInput.y);
+
+        Vector3 charaPos = anchorPosition + anchorToPlayer.normalized * m_anchorDistance;
+
+        ////transform.position = charaPos;
+        m_rb.position = charaPos;
+    }
+
+    private void HandleSwingPhysics()
+    {
+        if (!m_isSwinging || m_swingJoint == null || m_currentSwingRope == null)
+            return;
+
+        Vector3 anchorPosition = m_currentSwingRope.AnchorPosition;
+        Vector3 ropeDirection = (transform.position - anchorPosition).normalized;
+
+
+        Vector2 rawInput = m_moveInput.action.ReadValue<Vector2>();
+
+
+        Camera cam = Camera.main;
+        Vector3 camForward = cam != null ? cam.transform.forward : Vector3.forward;
+        Vector3 camRight = cam != null ? cam.transform.right : Vector3.right;
+        camForward.y = 0f; camRight.y = 0f;
+        camForward.Normalize(); camRight.Normalize();
+
+        Vector3 inputWorld = (camForward * rawInput.y + camRight * rawInput.x);
+
+
+        Vector3 tangentDirection = Vector3.ProjectOnPlane(inputWorld, ropeDirection);
+
+        if (tangentDirection.sqrMagnitude > 1e-5f)
+        {
+            float inputStrength = Mathf.Clamp01(inputWorld.magnitude);
+            Vector3 force = tangentDirection.normalized * m_swingForce * inputStrength;
+
+            m_rb.AddForce(force, ForceMode.Acceleration);
+        }
     }
 
     private void StopSwing(bool jumpOff = false)
@@ -500,34 +571,52 @@ public class CharaController : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        Debug.Log($"OnTriggerEnter: {other.name} (layer {LayerMask.LayerToName(other.gameObject.layer)})");
+
         SwingRope swingRope = other.GetComponentInParent<SwingRope>();
+        if (swingRope == null)
+        {
+            swingRope = other.GetComponentInChildren<SwingRope>();
+        }
+
         if (swingRope != null)
         {
             m_currentSwingRope = swingRope;
+            Debug.Log("Detecte SwingRope: " + swingRope.name);
         }
 
         if (other.CompareTag("Fil"))
         {
-            m_currentRope = other.transform;
+            m_currentRope = other.transform;    
+            Debug.Log("Detecte Fil trigger: " + other.name);
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
+        Debug.Log($"OnTriggerExit: {other.name}");
+
         SwingRope swingRope = other.GetComponentInParent<SwingRope>();
-        if (swingRope != null && swingRope == m_currentSwingRope)
+        if (swingRope == null)
+        {
+            swingRope = other.GetComponentInChildren<SwingRope>();
+        }
+
+        if (swingRope != null && swingRope == m_currentSwingRope && !m_isSwinging)
         {
             m_currentSwingRope = null;
+            Debug.Log("Left SwingRope: " + swingRope.name);
 
             if (m_isSwinging)
             {
-                StopSwing();
+                //StopSwing();
             }
         }
 
         if (other.CompareTag("Fil") && other.transform == m_currentRope)
         {
             m_currentRope = null;
+            Debug.Log("Left Fil: " + other.name);
 
             if (m_isClimbing)
             {
