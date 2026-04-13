@@ -1,9 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using static TMPro.TMP_Compatibility;
 
 public class CharaController : MonoBehaviour
 {
@@ -28,150 +26,157 @@ public class CharaController : MonoBehaviour
     [SerializeField] private float m_maxJumpHoldTime = 0.25f;
     [SerializeField] private float m_fallMultiplier = 2.5f;
 
-    [Header("Balance")]
-    [SerializeField] private float m_balanceSpeed = 2f;
-    [SerializeField] private float m_balanceForce = 5f;
-    [SerializeField] private float m_maxBalanceAngle = 30f;
-
-    [Header("Climb")]
-    [SerializeField] private float m_climbSpeed = 3f;
-    [SerializeField] private float m_climbJumpForce = 5f;
-
-    [Header("Swing")]
+    [Header("Swing (SpringJoint)")]
     [SerializeField] private float m_swingForce = 20f;
-    [SerializeField] private float m_swingReleaseBoost = 2f;
+    [SerializeField] private float m_swingReleaseBoost = 4f;
 
-    [Header("Fil")]
-    [SerializeField] private GameObject m_filPrefab;
-    [SerializeField] private int m_maxFil = 3;
+    [SerializeField] private float m_swingSpring = 100f;
+    [SerializeField] private float m_swingDamper = 8f;
+    [SerializeField] private float m_swingTolerance = 0.02f;
+    [SerializeField] [Range(0.1f, 1f)] private float m_swingMinDistanceRatio = 0.9f;
 
-    [Header("Inventory")]
-    [SerializeField] private bool m_startWithScissors = true;
-    [SerializeField] private int m_startThreadCount = 1;
-    [SerializeField] private int m_maxThreadCount = 5;
+    [Header("Swing options")]
+    [SerializeField] private bool m_useAnchorRigidbody = true;
+    [SerializeField] private bool m_autoTuneSwing = true;
+    private enum SwingPreset { Short, Default, Long }
+    [SerializeField] private SwingPreset m_swingPreset = SwingPreset.Default;
 
-    [Header("Fil Aim")]
-    [SerializeField] private LayerMask m_anchorLayer;
-    [SerializeField] private float m_maxAimDistance = 20f;
-    [SerializeField] private float m_pullForce = 20f;
-    [SerializeField] private float m_aimTurnSpeed = 20f;
+    [Header("Swing constraints")]
+    [Tooltip("Permet d'autoriser une petite marge au-dessus de la length configurée (évite le snap)")]
+    [SerializeField] private float m_swingMaxDistanceMultiplier = 1.02f;
+    [Tooltip("Distance minimale autorisée entre joueur et ancre (évite pénétration)")]
+    [SerializeField] private float m_swingMinDistance = 0.2f;
+    [Tooltip("Empêche le joueur de passer au-dessus du point d'attache")]
+    [SerializeField] private bool m_preventCrossTop = true;
+    [Tooltip("Séparation verticale minimale sous l'ancre (si empêché)")]
+    [SerializeField] private float m_topClearance = 0.08f;
+
+    [Header("Swing smoothing / correction")]
+    [Tooltip("Vitesse de correction de position lorsque la contrainte est appliquée (plus haut = moins abrupt)")]
+    [SerializeField] private float m_correctionSpeed = 10f;
+    [Tooltip("Facteur appliqué pour dissiper progressivement la vitesse radiale sortante (0..1)")]
+    [SerializeField] [Range(0f, 1f)] private float m_radialDampingFactor = 0.5f;
+    [Tooltip("Vitesse d'atténuation de la composante verticale lorsqu'on empêche de dépasser l'ancre")]
+    [SerializeField] private float m_topClampSpeed = 6f;
+
+    [Header("Swing charge (UI)")]
+    [Tooltip("Vitesse à laquelle la barre se recharge en fonction de la vitesse tangentielle")]
+    [SerializeField] private float m_chargePerSpeed = 0.12f;
+    [Tooltip("Vitesse à laquelle la charge diminue quand on ne swing pas")]
+    [SerializeField] private float m_chargeDecay = 0.6f;
+    [Tooltip("Multiplicateur d'impulsion provenant de la charge au lâcher")]
+    [SerializeField] private float m_chargeBoostMultiplier = 6f;
+    [Tooltip("Inertie multipliée sur la vitesse tangentielle au lâcher")]
+    [SerializeField] private float m_inertiaMultiplier = 1.0f;
+    [SerializeField] private float m_maxCharge = 1f;
 
     [Header("Input")]
     [SerializeField] private InputActionReference m_moveInput;
     [SerializeField] private InputActionReference m_runInput;
     [SerializeField] private InputActionReference m_jumpInput;
-    [SerializeField] private InputActionReference m_filAimInput;
-    [SerializeField] private InputActionReference m_clickInput;
 
-    private List<GameObject> m_spawnedFils = new List<GameObject>();
-
+    // States
     private bool m_isGrounded;
     private bool m_isJumping;
-    private bool m_onFil;
-    private bool m_isAiming;
     private bool m_isClimbing;
     private bool m_isSwinging;
 
-    private float m_jumpTimer;
+    // physics & movement
+    private float m_jumpTimer; 
     private float m_currentSpeed;
     private float m_gravity;
     private float m_jumpVelocity;
-    private float m_balance;
-    private float m_balanceVelocity;
-
     private Vector3 m_moveDirection;
-    private Vector3? m_firstPoint;
 
-    private Transform m_currentRope;
+    // rope / swing
+    private Transform m_currentRope;            
     private SwingRope m_currentSwingRope;
     private SpringJoint m_swingJoint;
+    private Vector3 m_cachedAnchorPosition;
 
-    private float m_anchorDistance = 0;
+    // swing runtime
+    private float m_swingCharge = 0f; // 0..1
+    public float SwingChargeNormalized => m_swingCharge;
 
-    public bool HasScissors { get; private set; }
-    public int ThreadCount { get; private set; }
-
-    void Start()
+    private void Start()
     {
-        m_moveInput.action.Enable();
-        m_runInput.action.Enable();
-        m_jumpInput.action.Enable();
-        m_filAimInput.action.Enable();
-        m_clickInput.action.Enable();
+        if (m_moveInput != null) m_moveInput.action.Enable();
+        if (m_runInput != null) m_runInput.action.Enable();
+        if (m_jumpInput != null) m_jumpInput.action.Enable();
 
         m_gravity = (-2f * m_jumpHeight) / Mathf.Pow(m_jumpTimeToApex, 2);
         m_jumpVelocity = (2f * m_jumpHeight) / m_jumpTimeToApex;
 
-        HasScissors = m_startWithScissors;
-        ThreadCount = Mathf.Clamp(m_startThreadCount, 0, m_maxThreadCount);
+        if (m_rb == null) Debug.LogError("CharaController: Rigidbody reference is missing.");
+        if (m_groundCheck == null) Debug.LogWarning("CharaController: GroundCheck missing - ground detection will fail.");
     }
 
-    void Update()
+    private void Update()
     {
         HandleInput();
-        HandleSwing();
+        HandleSwingInput();
         UpdateSpeed();
         HandleRotation();
         HandleJumpInput();
-        //HandleClimb();
-        HandleFilAim();
         SetDamping();
+
+        // decay charge if not swinging
+        if (!m_isSwinging)
+        {
+            m_swingCharge = Mathf.Max(0f, m_swingCharge - m_chargeDecay * Time.deltaTime);
+        }
     }
 
-    void FixedUpdate()
+    private void FixedUpdate()
     {
         CheckGround();
-        //HandleSwingPhysics();
-        HandleSwingCross();
-        HandleMovement();
+        if (m_isSwinging)
+            HandleSwingPhysics();
+        else
+            HandleMovement();
+
         ApplyGravity();
     }
 
     // INPUT
-
     private void HandleInput()
     {
-        Vector2 input = m_moveInput.action.ReadValue<Vector2>();
+        Vector2 input = Vector2.zero;
+        if (m_moveInput != null) input = m_moveInput.action.ReadValue<Vector2>();
 
-        Vector3 camForward = Camera.main.transform.forward;
-        Vector3 camRight = Camera.main.transform.right;
+        Camera cam = Camera.main;
+        Vector3 camForward = cam != null ? cam.transform.forward : Vector3.forward;
+        Vector3 camRight = cam != null ? cam.transform.right : Vector3.right;
 
-        camForward.y = 0;
-        camRight.y = 0;
+        camForward.y = 0f;
+        camRight.y = 0f;
+        camForward.Normalize();
+        camRight.Normalize();
 
-        m_moveDirection = (camForward.normalized * input.y + camRight.normalized * input.x).normalized;
+        m_moveDirection = (camForward * input.y + camRight * input.x).normalized;
     }
 
     // MOVEMENT
-
     private void HandleMovement()
     {
-        if (m_isClimbing || m_isSwinging)
-            return;
+        if (m_isClimbing || m_isSwinging) return;
 
         float control = m_isGrounded ? 1f : m_airControl;
 
         Vector3 targetVelocity = m_moveDirection * m_currentSpeed;
-        Vector3 velocity = m_rb.linearVelocity;
 
-        Vector3 velocityChange = (targetVelocity - new Vector3(velocity.x, 0, velocity.z)) * m_acceleration * control;
+        Vector3 velocity = m_rb != null ? m_rb.linearVelocity : Vector3.zero;
 
-        m_rb.AddForce(velocityChange, ForceMode.Acceleration);
+        Vector3 velocityChange = (targetVelocity - new Vector3(velocity.x, 0f, velocity.z)) * m_acceleration * control;
+
+        if (m_rb != null) m_rb.AddForce(velocityChange, ForceMode.Acceleration);
     }
 
     private void HandleRotation()
     {
-        if (m_isSwinging)
-            return;
+        if (m_isSwinging) return;
 
-        if (m_isAiming)
-        {
-            RotateTowardsAim();
-            return;
-        }
-
-        if (m_moveDirection.sqrMagnitude < 0.01f)
-            return;
+        if (m_moveDirection.sqrMagnitude < 0.01f) return;
 
         Vector3 targetForward = Vector3.RotateTowards(
             transform.forward,
@@ -191,38 +196,24 @@ public class CharaController : MonoBehaviour
             return;
         }
 
-        bool isRunning = m_runInput.action.IsPressed() && m_moveDirection.sqrMagnitude > 0.1f;
-
+        bool isRunning = m_runInput != null && m_runInput.action.IsPressed() && m_moveDirection.sqrMagnitude > 0.1f;
         float targetSpeed = isRunning ? m_runSpeed : m_walkSpeed;
-
-        if (m_onFil)
-        {
-            targetSpeed *= 0.5f;
-        }
-
         m_currentSpeed = Mathf.Lerp(m_currentSpeed, targetSpeed, Time.deltaTime * m_speedSmooth);
     }
 
     private void SetDamping()
     {
-        if (m_isSwinging)
-        {
-            m_rb.linearDamping = 0;
-        }
-        else
-        {
-            m_rb.linearDamping = 20;
-        }
+        if (m_rb == null) return;
+        m_rb.linearDamping = m_isSwinging ? 0f : 20f;
     }
 
     // JUMP
-
     private void HandleJumpInput()
     {
-        if (m_isClimbing || m_isSwinging)
-            return;
+        if (m_isClimbing) return;
+        if (m_jumpInput == null) return;
 
-        if (m_jumpInput.action.WasPressedThisFrame() && m_isGrounded)
+        if (m_jumpInput.action.WasPressedThisFrame() && m_isGrounded && !m_isSwinging)
         {
             Jump();
         }
@@ -230,10 +221,9 @@ public class CharaController : MonoBehaviour
         if (m_jumpInput.action.IsPressed() && m_isJumping)
         {
             m_jumpTimer += Time.deltaTime;
-
             if (m_jumpTimer < m_maxJumpHoldTime)
             {
-                m_rb.AddForce(Vector3.up * m_jumpVelocity * 0.5f, ForceMode.Acceleration);
+                if (m_rb != null) m_rb.AddForce(Vector3.up * m_jumpVelocity * 0.5f, ForceMode.Acceleration);
             }
         }
 
@@ -245,42 +235,24 @@ public class CharaController : MonoBehaviour
 
     private void Jump()
     {
+        if (m_rb == null) return;
+
         Vector3 velocity = m_rb.linearVelocity;
-        velocity.y = 0;
+        velocity.y = 0f;
         m_rb.linearVelocity = velocity;
 
         m_rb.AddForce(Vector3.up * m_jumpVelocity, ForceMode.VelocityChange);
 
         m_isJumping = true;
-        m_jumpTimer = 0;
-    }
-
-    private void HandleBalance()
-{
-        if (!m_onFil)
-        {
-            m_balance = 0;
-            return;
-        }
-
-        m_balance += Random.Range(-1f, 1f) * m_balanceSpeed * Time.deltaTime;
-        float input = m_moveInput.action.ReadValue<Vector2>().x;
-        m_balance -= input * m_balanceForce * Time.deltaTime;
-        m_balance = Mathf.Clamp(m_balance, -m_maxBalanceAngle, m_maxBalanceAngle);
-        transform.localRotation = Quaternion.Euler(0, transform.eulerAngles.y, m_balance);
-
-        if (Mathf.Abs(m_balance) >= m_maxBalanceAngle)
-        {
-            FallOffFil();
-        }
+        m_jumpTimer = 0f;
     }
 
     private void ApplyGravity()
     {
-        if (m_isClimbing || m_isSwinging)
-            return;
+        if (m_isClimbing || m_isSwinging) return;
+        if (m_rb == null) return;
 
-        if (m_rb.linearVelocity.y < 0)
+        if (m_rb.linearVelocity.y < 0f)
         {
             m_rb.AddForce(Vector3.up * m_gravity * m_fallMultiplier, ForceMode.Acceleration);
         }
@@ -292,156 +264,37 @@ public class CharaController : MonoBehaviour
 
     private void CheckGround()
     {
+        if (m_groundCheck == null) { m_isGrounded = false; return; }
+
         m_isGrounded = m_groundCheck.GetIsHitting();
-
-        if (m_isGrounded)
-        {
-            m_isJumping = false;
-        }
+        if (m_isGrounded) m_isJumping = false;
     }
 
-    // FIL SYSTEM
-
-    private void HandleFilAim()
+    // SWING (SpringJoint)  
+    private void HandleSwingInput()
     {
-        m_isAiming = m_filAimInput.action.IsPressed();
+        if (m_jumpInput == null) return;
 
-        if (!m_isAiming)
-        {
-            m_firstPoint = null;
-            return;
-        }
-
-        if (m_clickInput.action.WasPressedThisFrame())
-        {
-            TrySelectPoint();
-        }
-    }
-
-    private void TrySelectPoint()
-    {
-        Ray ray = GetAimRay();
-        RaycastHit hit;
-
-        Debug.DrawRay(ray.origin, ray.direction * m_maxAimDistance, Color.red, 1f);
-
-        if (Physics.Raycast(ray, out hit, m_maxAimDistance))
-        {
-            CuttableThread cuttableThread = hit.collider.GetComponentInParent<CuttableThread>();
-            if (cuttableThread != null && cuttableThread.CanBeCut)
-            {
-                if (cuttableThread.Cut(this))
-                {
-                    Debug.Log("Fil coupe et recupere");
-                }
-                else if (!HasScissors)
-                {
-                    Debug.Log("Il faut les ciseaux pour couper ce fil");
-                }
-
-                return;
-            }
-        }
-
-        if (Physics.Raycast(ray, out hit, m_maxAimDistance, m_anchorLayer))
-        {
-            if (m_firstPoint == null)
-            {
-                m_firstPoint = hit.point;
-                Debug.Log("Point A selectionne");
-            }
-            else
-            {
-                CreateFil(m_firstPoint.Value, hit.point);
-                m_firstPoint = null;
-
-                Debug.Log("Fil cree");
-            }
-        }
-
-        if (Physics.Raycast(ray, out hit, m_maxAimDistance))
-        {
-            PullableObject pullableObject = hit.collider.GetComponent<PullableObject>();
-            if (pullableObject != null)
-            {
-                pullableObject.Pull(transform.position, m_pullForce);
-                return;
-            }
-            if (((1 << hit.collider.gameObject.layer) & m_anchorLayer) != 0)
-            {
-                if (m_firstPoint == null)
-                {
-                    m_firstPoint = hit.point;
-                }
-                else
-                {
-                    CreateFil(m_firstPoint.Value, hit.point);
-                    m_firstPoint = null;
-                }
-            }
-        }
-    }
-
-    private void CreateFil(Vector3 start, Vector3 end)
-    {
-        if (!TryUseThread())
-        {
-            Debug.Log("Plus de fil dans l'inventaire");
-            return;
-        }
-
-        GameObject filObj = Instantiate(m_filPrefab);
-
-        Fil fil = filObj.GetComponent<Fil>();
-        fil.Init(start, end);
-
-        if (m_spawnedFils.Count >= m_maxFil)
-        {
-            Destroy(m_spawnedFils[0]);
-            m_spawnedFils.RemoveAt(0);
-        }
-
-        m_spawnedFils.Add(filObj);
-    }
-
-    private void FallOffFil()
-    {
-        m_onFil = false;
-
-        m_rb.AddForce(Vector3.down * 5f, ForceMode.Impulse);
-
-        Debug.Log("Le moine tombe du fil !");
-    }
-
-    private void HandleSwing()
-    {
         bool jumpPressed = m_jumpInput.action.WasPressedThisFrame();
 
         if (!m_isSwinging)
         {
             if (m_currentSwingRope != null && jumpPressed)
             {
-                StartSwingCross();
-                //StartSwing();
+                StartSwingWithJoint();
             }
-
             return;
         }
 
         if (jumpPressed)
         {
             StopSwing(true);
-            return;
-
         }
     }
 
-    private void StartSwing()
+    private void StartSwingWithJoint()
     {
-        if (m_isClimbing)
-        {
-            StopClimb();
-        }
+        if (m_isSwinging || m_currentSwingRope == null || m_rb == null) return;
 
         m_isSwinging = true;
         m_isJumping = false;
@@ -453,131 +306,250 @@ public class CharaController : MonoBehaviour
             m_swingJoint = gameObject.AddComponent<SpringJoint>();
         }
 
-        Vector3 anchorPosition = m_currentSwingRope.AnchorPosition;
-        Vector3 anchorToPlayer = transform.position - anchorPosition;
+        // anchor world pos and current distance
+        Vector3 anchorWorldPos = m_currentSwingRope.AnchorPosition;
+        float currentDistance = Vector3.Distance(anchorWorldPos, transform.position);
+        float configuredLength = Mathf.Max(0.5f, m_currentSwingRope.RopeLength);
 
-        if (anchorToPlayer.sqrMagnitude < 0.001f)
+        // choose effective length: at least currentDistance to avoid snapping inside anchor
+        float ropeLength = Mathf.Max(configuredLength, currentDistance);
+
+        if (m_autoTuneSwing)
         {
-            anchorToPlayer = Vector3.down;
+            ApplySwingPreset(ropeLength);
         }
 
-        float ropeLength = Mathf.Max(0.5f, m_currentSwingRope.RopeLength);
-
-        transform.position = anchorPosition + anchorToPlayer.normalized * ropeLength;
-
-        m_swingJoint.autoConfigureConnectedAnchor = false;
+        Rigidbody anchorRb = m_currentSwingRope.AnchorRb;
+        if (m_useAnchorRigidbody && anchorRb != null && anchorRb != m_rb)
+        {
+            m_swingJoint.connectedBody = anchorRb;
+            m_swingJoint.autoConfigureConnectedAnchor = false;
+            // connectedAnchor is in connectedBody local space
+            m_swingJoint.connectedAnchor = anchorRb.transform.InverseTransformPoint(anchorWorldPos);
+        }
+        else
+        {
+            m_swingJoint.connectedBody = null;
+            m_swingJoint.autoConfigureConnectedAnchor = false;
+            m_swingJoint.connectedAnchor = anchorWorldPos;
+        }
 
         m_swingJoint.maxDistance = ropeLength;
-        m_swingJoint.minDistance = ropeLength * 0.9f; 
-        m_swingJoint.spring = 50f;    
-        m_swingJoint.damper = 5f;     
-        m_swingJoint.tolerance = 0.02f;
+        m_swingJoint.minDistance = ropeLength * m_swingMinDistanceRatio;
+        m_swingJoint.spring = m_swingSpring;
+        m_swingJoint.damper = m_swingDamper;
+        m_swingJoint.tolerance = m_swingTolerance;
         m_swingJoint.enableCollision = false;
-    }
 
-    private void StartSwingCross()
-    {
-        if (m_isSwinging) return;
+        // disable rope end colliders to avoid retriggers and start visual follow
+        m_currentSwingRope.SetEndCollidersEnabled(false);
+        m_currentSwingRope.StartFollow(transform);
 
-        //m_rb.useGravity = false;
+        // zero player linear velocity for consistent attach
         m_rb.linearVelocity = Vector3.zero;
 
-        m_isSwinging = true;
-        m_anchorDistance = Vector3.Distance(transform.position, m_currentSwingRope.AnchorPosition);
-        //m_anchorDistance =  (m_currentSwingRope.AnchorPosition - transform.position).magnitude;
+        // reset charge on attach
+        m_swingCharge = 0f;
+
+        Debug.Log($"Swing attach: length={ropeLength:F2} spring={m_swingSpring:F1} damper={m_swingDamper:F1}");
     }
 
-    private void HandleSwingCross()
+    private void ApplySwingPreset(float ropeLength)
     {
-        if (!m_isSwinging)
-            return;
-        Vector2 rawInput = m_moveInput.action.ReadValue<Vector2>();
+        float length = Mathf.Max(0.5f, ropeLength);
 
+        float presetMul = 1f;
+        switch (m_swingPreset)
+        {
+            case SwingPreset.Short: presetMul = 1.5f; break;   // corde courte = ressort plus rigide
+            case SwingPreset.Default: presetMul = 1f; break;
+            case SwingPreset.Long: presetMul = 0.6f; break;    // corde longue = ressort plus souple
+        }
 
-        Vector3 anchorPosition = m_currentSwingRope.AnchorPosition;
-        Vector3 anchorToPlayer = transform.position - anchorPosition;
+        // regle simple : spring = base / longueur ; damper = spring * facteur
+        float baseFactor = 120f; 
+        float computedSpring = Mathf.Clamp(baseFactor / length * presetMul, 20f, 2000f);
+        float computedDamper = Mathf.Clamp(computedSpring * 0.08f, 0.5f, 200f);
 
-        Vector3 forwardSwing = Vector3.Cross(anchorToPlayer, Camera.main.transform.right).normalized;
-
-        Vector3 rightSwing = Vector3.Cross(anchorToPlayer, Camera.main.transform.forward).normalized;
-        m_rb.linearVelocity += (-rightSwing * m_swingForce * rawInput.x) + (forwardSwing * m_swingForce * rawInput.y);
-
-        Vector3 charaPos = anchorPosition + anchorToPlayer.normalized * m_anchorDistance;
-
-        ////transform.position = charaPos;
-        m_rb.position = charaPos;
+        m_swingSpring = computedSpring;
+        m_swingDamper = computedDamper;
     }
 
     private void HandleSwingPhysics()
     {
-        if (!m_isSwinging || m_swingJoint == null || m_currentSwingRope == null)
-            return;
+        if (!m_isSwinging || m_swingJoint == null || m_currentSwingRope == null || m_rb == null) return;
 
-        Vector3 anchorPosition = m_currentSwingRope.AnchorPosition;
-        Vector3 ropeDirection = (transform.position - anchorPosition).normalized;
+        if (m_swingJoint.connectedBody == null)
+        {
+            m_cachedAnchorPosition = m_currentSwingRope.AnchorPosition;
+            m_swingJoint.connectedAnchor = m_cachedAnchorPosition;
+        }
 
+        Vector2 rawInput = m_moveInput != null ? m_moveInput.action.ReadValue<Vector2>() : Vector2.zero;
 
-        Vector2 rawInput = m_moveInput.action.ReadValue<Vector2>();
+        Vector3 anchorPosition = (m_swingJoint.connectedBody != null) ? m_swingJoint.connectedBody.position : m_swingJoint.connectedAnchor;
+        Vector3 anchorToPlayer = transform.position - anchorPosition;
+        if (anchorToPlayer.sqrMagnitude < 1e-6f) anchorToPlayer = Vector3.down;
 
+        // compute radial and tangential components of velocity
+        Vector3 dir = anchorToPlayer.normalized;
+        Vector3 vel = m_rb.linearVelocity;
+        float radialVel = Vector3.Dot(vel, dir);
+        Vector3 tangentialVel = vel - dir * radialVel;
+        float tangentialSpeed = tangentialVel.magnitude;
 
+        // charge logic: add charge proportionally to tangential speed
+        m_swingCharge = Mathf.Clamp(m_swingCharge + tangentialSpeed * m_chargePerSpeed * Time.fixedDeltaTime, 0f, m_maxCharge);
+
+        // apply player input as tangential force to increase swing amplitude (unchanged)
         Camera cam = Camera.main;
         Vector3 camForward = cam != null ? cam.transform.forward : Vector3.forward;
         Vector3 camRight = cam != null ? cam.transform.right : Vector3.right;
-        camForward.y = 0f; camRight.y = 0f;
-        camForward.Normalize(); camRight.Normalize();
 
-        Vector3 inputWorld = (camForward * rawInput.y + camRight * rawInput.x);
+        Vector3 forwardSwing = Vector3.Cross(anchorToPlayer, camRight).normalized;
+        Vector3 rightSwing = Vector3.Cross(anchorToPlayer, camForward).normalized;
 
+        Vector3 tangentForce = (-rightSwing * m_swingForce * rawInput.x) + (forwardSwing * m_swingForce * rawInput.y);
+        m_rb.AddForce(tangentForce, ForceMode.Acceleration);
 
-        Vector3 tangentDirection = Vector3.ProjectOnPlane(inputWorld, ropeDirection);
+        // --- Contraintes supplémentaires pour éviter d'aller trop loin et empêcher de passer au-dessus de l'ancre ---
+        float currentDist = anchorToPlayer.magnitude;
+        float jointMax = (m_swingJoint != null) ? m_swingJoint.maxDistance : m_currentSwingRope.RopeLength;
+        float allowedMax = jointMax * m_swingMaxDistanceMultiplier;
 
-        if (tangentDirection.sqrMagnitude > 1e-5f)
+        // 1) limiter la distance radiale — correction en douceur via MovePosition
+        if (currentDist > allowedMax)
         {
-            float inputStrength = Mathf.Clamp01(inputWorld.magnitude);
-            Vector3 force = tangentDirection.normalized * m_swingForce * inputStrength;
+            Vector3 targetPos = anchorPosition + dir * Mathf.Max(allowedMax, m_swingMinDistance);
+            Vector3 newPos = Vector3.Lerp(m_rb.position, targetPos, 1f - Mathf.Exp(-m_correctionSpeed * Time.fixedDeltaTime));
+            // damp radial outward velocity gradually
+            float radialVelToRemove = Mathf.Max(0f, radialVel) * m_radialDampingFactor;
+            Vector3 newVel = m_rb.linearVelocity - dir * radialVelToRemove;
+            m_rb.MovePosition(newPos);
+            m_rb.linearVelocity = newVel;
+            // recalc anchorToPlayer
+            anchorToPlayer = (newPos - anchorPosition);
+            currentDist = anchorToPlayer.magnitude;
+            dir = anchorToPlayer.normalized;
+        }
 
-            m_rb.AddForce(force, ForceMode.Acceleration);
+        // 2) empêcher de dépasser l'ancre (ne jamais passer au-dessus) — lissage vertical
+        if (m_preventCrossTop)
+        {
+            float playerYrelative = m_rb.position.y - anchorPosition.y;
+            if (playerYrelative > -m_topClearance)
+            {
+                // desired y just below anchor
+                float targetY = anchorPosition.y - m_topClearance;
+                Vector3 targetPos = new Vector3(m_rb.position.x, targetY, m_rb.position.z);
+
+                // ensure horizontal radial distance preserved by projecting onto circle at targetY
+                float horizontalDist = Mathf.Sqrt(Mathf.Max(0f, (currentDist * currentDist) - (anchorPosition.y - m_rb.position.y) * (anchorPosition.y - m_rb.position.y)));
+                if (horizontalDist > 0.001f)
+                {
+                    Vector3 horizontalDir = (new Vector3(m_rb.position.x - anchorPosition.x, 0f, m_rb.position.z - anchorPosition.z)).normalized;
+                    targetPos.x = anchorPosition.x + horizontalDir.x * horizontalDist;
+                    targetPos.z = anchorPosition.z + horizontalDir.z * horizontalDist;
+                }
+
+                Vector3 newPos = Vector3.Lerp(m_rb.position, targetPos, 1f - Mathf.Exp(-m_topClampSpeed * Time.fixedDeltaTime));
+                // remove upward velocity smoothly
+                Vector3 v = m_rb.linearVelocity;
+                v.y = Mathf.Min(v.y, 0f);
+                m_rb.MovePosition(newPos);
+                m_rb.linearVelocity = v;
+            }
         }
     }
 
     private void StopSwing(bool jumpOff = false)
     {
-        if (!m_isSwinging)
-            return;
+        if (!m_isSwinging) return;
 
-        Vector3 releaseVelocity = m_rb.linearVelocity;
+        // capture current velocity before destroying joint
+        Vector3 releaseVelocity = m_rb != null ? m_rb.linearVelocity : Vector3.zero;
+
+        // stop visual follow immediately
+        SwingRope ropeToReactivate = m_currentSwingRope;
+        if (ropeToReactivate != null)
+        {
+            ropeToReactivate.StopFollow();
+        }
 
         m_isSwinging = false;
 
+        // destroy joint
         if (m_swingJoint != null)
         {
             Destroy(m_swingJoint);
             m_swingJoint = null;
         }
 
-        if (!jumpOff)
-            return;
+        // reapply velocity captured
+        if (m_rb != null)
+        {
+            m_rb.linearVelocity = releaseVelocity;
+        }
 
-        Vector3 releaseDirection = releaseVelocity.sqrMagnitude > 0.01f
-            ? releaseVelocity.normalized
-            : (transform.forward + Vector3.up).normalized;
+        if (jumpOff)
+        {
+            // compute radial and tangential components relative to anchor at release moment
+            Vector3 anchorPosition = (ropeToReactivate != null && ropeToReactivate.AnchorRb != null) ? (ropeToReactivate.AnchorRb.position) :
+                                     (ropeToReactivate != null ? ropeToReactivate.AnchorPosition : transform.position);
+            Vector3 anchorToPlayer = transform.position - anchorPosition;
+            if (anchorToPlayer.sqrMagnitude < 1e-6f) anchorToPlayer = Vector3.down;
+            Vector3 dir = anchorToPlayer.normalized;
+            Vector3 vel = m_rb != null ? m_rb.linearVelocity : Vector3.zero;
+            float radialVel = Vector3.Dot(vel, dir);
+            Vector3 tangentialVel = vel - dir * radialVel;
+            float tangentialSpeed = tangentialVel.magnitude;
+            Vector3 tangentialDir = tangentialSpeed > 1e-4f ? tangentialVel.normalized : (transform.forward + Vector3.up).normalized;
 
-        m_rb.linearVelocity = releaseVelocity + releaseDirection * m_swingReleaseBoost;
-        m_isJumping = true;
-        m_jumpTimer = 0f;
+            // compute impulse: inherit tangential inertia + charge boost + upward bias
+            Vector3 inertiaImpulse = tangentialDir * (tangentialSpeed * m_inertiaMultiplier);
+            Vector3 chargeImpulse = tangentialDir * (m_swingCharge * m_chargeBoostMultiplier);
+            Vector3 upwardBias = Vector3.up * (m_swingCharge * 1.2f); // small upward boost scaled with charge
+
+            Vector3 totalImpulse = inertiaImpulse + chargeImpulse + upwardBias;
+
+            if (m_rb != null)
+            {
+                m_rb.AddForce(totalImpulse, ForceMode.VelocityChange);
+            }
+
+            m_isJumping = true;
+            m_jumpTimer = 0f;
+        }
+
+        // réactiver les colliders aprés un petit délai pour éviter retriggers immédiats
+        if (ropeToReactivate != null)
+        {
+            StartCoroutine(ReenableEndCollidersCoroutine(0.25f, ropeToReactivate));
+        }
+
+        // clear reference to current swing rope
+        m_currentSwingRope = null;
+
+        // reset charge
+        m_swingCharge = 0f;
     }
 
-    // FIL CLIMB
+    private IEnumerator ReenableEndCollidersCoroutine(float delay, SwingRope rope)
+    {
+        yield return new WaitForSeconds(delay);
+        if (rope != null)
+        {
+            rope.SetEndCollidersEnabled(true);
+        }
+    }
 
+    // TRIGGERS for rope detection
     private void OnTriggerEnter(Collider other)
     {
-        Debug.Log($"OnTriggerEnter: {other.name} (layer {LayerMask.LayerToName(other.gameObject.layer)})");
+        if (other == null) return;
 
         SwingRope swingRope = other.GetComponentInParent<SwingRope>();
-        if (swingRope == null)
-        {
-            swingRope = other.GetComponentInChildren<SwingRope>();
-        }
+        if (swingRope == null) swingRope = other.GetComponentInChildren<SwingRope>();
 
         if (swingRope != null)
         {
@@ -585,200 +557,31 @@ public class CharaController : MonoBehaviour
             Debug.Log("Detecte SwingRope: " + swingRope.name);
         }
 
-        if (other.CompareTag("Fil"))
+        if (other.CompareTag("SwingRope"))
         {
-            m_currentRope = other.transform;    
-            Debug.Log("Detecte Fil trigger: " + other.name);
+            m_currentRope = other.transform;
+            Debug.Log("Detecte SwingRope trigger: " + other.name);
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        Debug.Log($"OnTriggerExit: {other.name}");
+        if (other == null) return;
 
         SwingRope swingRope = other.GetComponentInParent<SwingRope>();
-        if (swingRope == null)
-        {
-            swingRope = other.GetComponentInChildren<SwingRope>();
-        }
+        if (swingRope == null) swingRope = other.GetComponentInChildren<SwingRope>();
 
         if (swingRope != null && swingRope == m_currentSwingRope && !m_isSwinging)
         {
             m_currentSwingRope = null;
             Debug.Log("Left SwingRope: " + swingRope.name);
-
-            if (m_isSwinging)
-            {
-                //StopSwing();
-            }
         }
 
-        if (other.CompareTag("Fil") && other.transform == m_currentRope)
+        if (other.CompareTag("SwingRope") && other.transform == m_currentRope)
         {
             m_currentRope = null;
-            Debug.Log("Left Fil: " + other.name);
-
-            if (m_isClimbing)
-            {
-                StopClimb();
-            }
+            Debug.Log("Left SwingRope: " + other.name);
         }
     }
 
-    private void HandleClimb()
-    {
-        if (m_isSwinging)
-            return;
-
-        if (m_currentRope == null)
-            return;
-
-        bool jumpPressed = m_jumpInput.action.WasPressedThisFrame();
-
-        if (!m_isClimbing)
-        {
-            if (jumpPressed)
-            {
-                StartClimb();
-            }
-
-            return;
-        }
-
-        float vertical = m_moveInput.action.ReadValue<Vector2>().y;
-        Vector3 move = Vector3.up * vertical * m_climbSpeed;
-
-        m_rb.linearVelocity = move;
-
-        Vector3 ropePos = m_currentRope.position;
-        transform.position = new Vector3(ropePos.x, transform.position.y, ropePos.z);
-
-        if (jumpPressed)
-        {
-            StopClimb(true);
-        }
-    }
-
-    private void StartClimb()
-    {
-        m_isClimbing = true;
-        m_rb.useGravity = false;
-        m_rb.linearVelocity = Vector3.zero;
-    }
-
-    private void StopClimb(bool jumpOff = false)
-    {
-        m_isClimbing = false;
-        m_rb.useGravity = true;
-
-        if (!jumpOff)
-            return;
-
-        Vector3 jumpDirection = Vector3.up;
-
-        if (m_moveDirection.sqrMagnitude > 0.01f)
-        {
-            jumpDirection = (Vector3.up + m_moveDirection).normalized;
-        }
-
-        m_rb.linearVelocity = Vector3.zero;
-        m_rb.AddForce(jumpDirection * m_climbJumpForce, ForceMode.VelocityChange);
-        m_isJumping = true;
-        m_jumpTimer = 0f;
-    }
-
-    public void GiveScissors()
-    {
-        if (HasScissors)
-            return;
-
-        HasScissors = true;
-        Debug.Log("Ciseaux recuperes");
-    }
-
-    public void AddThreads(int amount)
-    {
-        if (amount <= 0)
-            return;
-
-        int previousCount = ThreadCount;
-        ThreadCount = Mathf.Clamp(ThreadCount + amount, 0, m_maxThreadCount);
-
-        if (ThreadCount > previousCount)
-        {
-            Debug.Log("Fils en stock : " + ThreadCount);
-        }
-    }
-
-    private bool TryUseThread()
-    {
-        if (ThreadCount <= 0)
-            return false;
-
-        ThreadCount--;
-        Debug.Log("Fil utilise. Stock restant : " + ThreadCount);
-        return true;
-    }
-
-    private void RotateTowardsAim()
-    {
-        if (!TryGetAimPoint(out Vector3 aimPoint))
-            return;
-
-        Vector3 lookDirection = aimPoint - transform.position;
-        lookDirection.y = 0f;
-
-        if (lookDirection.sqrMagnitude < 0.001f)
-            return;
-
-        Quaternion targetRotation = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
-        transform.rotation = Quaternion.Slerp(
-            transform.rotation,
-            targetRotation,
-            m_aimTurnSpeed * Time.deltaTime
-        );
-    }
-
-    private Ray GetAimRay()
-    {
-        Camera currentCamera = Camera.main;
-        if (currentCamera == null)
-        {
-            return new Ray(transform.position + Vector3.up, transform.forward);
-        }
-
-        return currentCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-    }
-
-    private bool TryGetAimPoint(out Vector3 aimPoint)
-    {
-        Ray ray = GetAimRay();
-
-        if (Physics.Raycast(ray, out RaycastHit hit, m_maxAimDistance))
-        {
-            aimPoint = hit.point;
-            return true;
-        }
-
-        aimPoint = ray.origin + ray.direction * m_maxAimDistance;
-        return true;
-    }
-
-    // FIL COLLISION
-
-    private void OnCollisionStay(Collision collision)
-    {
-        if (collision.gameObject.CompareTag("Fil"))
-        {
-            m_onFil = true;
-        }
-    }
-
-    private void OnCollisionExit(Collision collision)
-    {
-        if (collision.gameObject.CompareTag("Fil"))
-        {
-            m_onFil = false;
-        }
-    }
 }
