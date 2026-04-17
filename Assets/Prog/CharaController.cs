@@ -1,13 +1,28 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class CharaController : MonoBehaviour
+public class CharaController : MonoBehaviour, IRuntimeResettable
 {
+    private const float kSwingTolerance = 0.02f;
+    private const float kSwingMinDistanceRatio = 0.9f;
+    private const float kSwingTopClearance = 0.08f;
+    private const float kSwingAttachShrinkDuration = 0.18f;
+    private const float kSwingCorrectionSpeed = 10f;
+    private const float kSwingRadialDampingFactor = 0.5f;
+    private const float kSwingMaxDistanceMultiplier = 1.02f;
+    private const float kSwingMinDistance = 0.2f;
+    private const float kSwingTopClampSpeed = 6f;
+    private const float kSwingRotationSpeed = 6f;
+    private const float kSwingColliderReenableDelay = 1f;
+    private const float kSwingChargeGainAtEmpty = 0.45f;
+    private const float kSwingChargeGainAtMax = 0.12f;
+    private const float kSwingTangentialSpeedMultiplier = 1.25f;
+    private const float kSwingBottomAccelerationBoost = 1.35f;
+    private const float kSwingLaunchJumpFactor = 0.48f;
+
     [Header("References")]
     [SerializeField] private Rigidbody m_rb;
-    [SerializeField] private Animator m_anim;
     [SerializeField] private GroundCheck m_groundCheck;
 
     [Header("Movement")]
@@ -37,10 +52,6 @@ public class CharaController : MonoBehaviour
 
     [Header("Swing (SpringJoint)")]
     [SerializeField] private float m_swingForce = 20f;
-    [SerializeField] private float m_swingSpring = 100f;
-    [SerializeField] private float m_swingDamper = 8f;
-    [SerializeField] private float m_swingTolerance = 0.02f;
-    [SerializeField] [Range(0.1f, 1f)] private float m_swingMinDistanceRatio = 0.9f;
 
     [Header("Swing control")]
     [SerializeField] private float m_swingSteerResponsiveness = 8f;
@@ -54,49 +65,15 @@ public class CharaController : MonoBehaviour
     [SerializeField] private float m_climbJumpForwardBoost = 1.5f;
     [SerializeField] private float m_climbJumpUpwardMultiplier = 0.9f;
 
-    [Header("Swing options")]
-    [SerializeField] private bool m_useAnchorRigidbody = true;
-    [SerializeField] private bool m_autoTuneSwing = true;
-    private enum SwingPreset { Short, Default, Long }
-    [SerializeField] private SwingPreset m_swingPreset = SwingPreset.Default;
-
-    [Header("Swing constraints")]
-    [Tooltip("Empêche le joueur de passer au-dessus du point d'attache")]
-    [SerializeField] private bool m_preventCrossTop = true;
-    [Tooltip("Séparation verticale minimale sous l'ancre (si empêché)")]
-    [SerializeField] private float m_topClearance = 0.08f;
-
-    [Header("Swing smoothing / correction")]
-    [Tooltip("Temps de réduction progressive de la longueur du joint lors de l'attache si le joueur est plus loin que la longueur configurée")]
-    [SerializeField] private float m_jointShrinkDuration = 0.18f;
-    [Tooltip("Vitesse de correction de position lorsque la contrainte radiale est appliquée (plus haut = moins abrupt)")]
-    [SerializeField] private float m_correctionSpeed = 10f;
-    [Tooltip("Facteur appliqué pour dissiper progressivement la vitesse radiale sortante (0..1)")]
-    [SerializeField] [Range(0f, 1f)] private float m_radialDampingFactor = 0.5f;
-    [Tooltip("Permet d'autoriser une petite marge au-dessus de la length configurée (évite le snap)")]
-    [SerializeField] private float m_swingMaxDistanceMultiplier = 1.02f;
-    [Tooltip("Distance minimale autorisée entre joueur et ancre (évite pénétration)")]
-    [SerializeField] private float m_swingMinDistance = 0.2f;
-    [Tooltip("Vitesse d'atténuation de la composante verticale lorsqu'on empêche de dépasser l'ancre")]
-    [SerializeField] private float m_topClampSpeed = 6f;
-
-    [Header("Swing visual / rotation")]
-    [SerializeField] private float m_swingRotationSpeed = 6f;
-
     [Header("Swing charge (UI)")]
     [Tooltip("Vitesse à laquelle la barre se recharge en fonction de la vitesse tangentielle")]
     [SerializeField] private float m_chargePerSpeed = 0.12f;
-    [Tooltip("Vitesse à laquelle la charge diminue quand on ne swing pas")]
-    [SerializeField] private float m_chargeDecay = 0.6f;
-    [Tooltip("Multiplicateur d'impulsion provenant de la charge au lâcher")]
-    [SerializeField] private float m_chargeBoostMultiplier = 6f;
-    [Tooltip("Inertie multipliée sur la vitesse tangentielle au lâcher")]
-    [SerializeField] private float m_inertiaMultiplier = 1.0f;
     [SerializeField] private float m_maxCharge = 1f;
-
-    [Header("Detach")]
-    [Tooltip("Temps en secondes avant de réactiver les colliders de la corde après s'être détaché")]
-    [SerializeField] private float m_reenableEndCollidersDelay = 1.0f;
+    [SerializeField] private float m_releaseBaseSpeed = 5f;
+    [SerializeField] private float m_releaseChargeSpeedBonus = 10f;
+    [SerializeField] private float m_releaseBaseUpwardSpeed = 3f;
+    [SerializeField] private float m_releaseChargeUpwardBonus = 5f;
+    [SerializeField] private float m_releaseMomentumInfluence = 0.6f;
 
     [Header("Input")]
     [SerializeField] private InputActionReference m_moveInput;
@@ -121,10 +98,8 @@ public class CharaController : MonoBehaviour
     private bool m_ignoreJumpUntilReleased;
 
     // rope / swing
-    private Transform m_currentRope;            
     private SwingRope m_currentSwingRope;
     private SpringJoint m_swingJoint;
-    private Vector3 m_cachedAnchorPosition;
     private Collider m_currentRopeCollider; // exact collider we triggered on
     private ClimbRope m_currentClimbRope;
     private float m_climbParam = 1f;
@@ -135,8 +110,8 @@ public class CharaController : MonoBehaviour
     private Vector3 m_attachPoint;
 
     // swing runtime
-    private float m_swingCharge = 0f; // 0..1
-    public float SwingChargeNormalized => m_swingCharge;
+    private float m_swingCharge = 0f; // 0..maxCharge
+    public float SwingChargeNormalized => m_maxCharge > 0f ? Mathf.Clamp01(m_swingCharge / m_maxCharge) : 0f;
 
     private Coroutine m_shrinkRoutine;
 
@@ -152,6 +127,59 @@ public class CharaController : MonoBehaviour
 
         if (m_rb == null) Debug.LogError("CharaController: Rigidbody reference is missing.");
         if (m_groundCheck == null) Debug.LogWarning("CharaController: GroundCheck missing - ground detection will fail.");
+
+        ResetRuntimeState();
+    }
+
+    private void OnDisable()
+    {
+        ResetSwingRuntimeImmediately();
+        ExitClimbState();
+    }
+
+    public void ResetRuntimeState()
+    {
+        ResetSwingRuntimeImmediately();
+        ExitClimbState();
+
+        m_isGrounded = false;
+        m_isJumping = false;
+        m_jumpTimer = 0f;
+        m_jumpBufferTimer = 0f;
+        m_coyoteTimer = 0f;
+        m_currentSpeed = 0f;
+        m_moveDirection = Vector3.zero;
+        m_ignoreJumpUntilReleased = false;
+        m_attachParam = 0f;
+        m_attachPoint = Vector3.zero;
+        m_climbParam = 1f;
+        m_climbSideOffsetDirection = Vector3.forward;
+
+        if (m_rb != null)
+        {
+            m_rb.useGravity = true;
+            m_rb.linearVelocity = Vector3.zero;
+            m_rb.angularVelocity = Vector3.zero;
+            m_rb.linearDamping = m_groundLinearDamping;
+        }
+    }
+
+    public void RespawnAt(Vector3 worldPosition, Quaternion worldRotation)
+    {
+        ResetRuntimeState();
+
+        transform.SetPositionAndRotation(worldPosition, worldRotation);
+
+        if (m_rb != null)
+        {
+            m_rb.position = worldPosition;
+            m_rb.rotation = worldRotation;
+            m_rb.linearVelocity = Vector3.zero;
+            m_rb.angularVelocity = Vector3.zero;
+            m_rb.Sleep();
+        }
+
+        Physics.SyncTransforms();
     }
 
     private void Update()
@@ -169,11 +197,6 @@ public class CharaController : MonoBehaviour
             m_ignoreJumpUntilReleased = false;
         }
 
-        // decay charge if not swinging
-        if (!m_isSwinging)
-        {
-            m_swingCharge = Mathf.Max(0f, m_swingCharge - m_chargeDecay * Time.deltaTime);
-        }
     }
 
     private void FixedUpdate()
@@ -200,16 +223,31 @@ public class CharaController : MonoBehaviour
         Vector2 input = Vector2.zero;
         if (m_moveInput != null) input = m_moveInput.action.ReadValue<Vector2>();
 
-        Camera cam = Camera.main;
-        Vector3 camForward = cam != null ? cam.transform.forward : Vector3.forward;
-        Vector3 camRight = cam != null ? cam.transform.right : Vector3.right;
-
-        camForward.y = 0f;
-        camRight.y = 0f;
-        camForward.Normalize();
-        camRight.Normalize();
+        Vector3 camForward = GetCameraPlanarForward();
+        Vector3 camRight = Vector3.Cross(Vector3.up, camForward).normalized;
 
         m_moveDirection = (camForward * input.y + camRight * input.x).normalized;
+    }
+
+    private bool WasDetachPressed()
+    {
+        bool actionPressed = m_detachInput != null && m_detachInput.action.WasPressedThisFrame();
+        return actionPressed || Input.GetMouseButtonDown(0);
+    }
+
+    private Vector3 GetCameraPlanarForward()
+    {
+        Camera cam = Camera.main;
+        Vector3 planarForward = cam != null ? cam.transform.forward : transform.forward;
+        planarForward.y = 0f;
+
+        if (planarForward.sqrMagnitude < 0.001f)
+        {
+            planarForward = transform.forward;
+            planarForward.y = 0f;
+        }
+
+        return planarForward.sqrMagnitude > 0.001f ? planarForward.normalized : Vector3.forward;
     }
 
     // MOVEMENT
@@ -390,17 +428,7 @@ public class CharaController : MonoBehaviour
         // Only handle detach input here. Attach is automatic on trigger enter.
         if (m_isClimbing) return;
 
-        bool detachPressed = false;
-        if (m_detachInput != null)
-        {
-            detachPressed = m_detachInput.action.WasPressedThisFrame();
-        }
-        else
-        {
-            detachPressed = Input.GetMouseButtonDown(0);
-        }
-
-        if (m_isSwinging && detachPressed)
+        if (m_isSwinging && WasDetachPressed())
         {
             StopSwing(true);
         }
@@ -410,13 +438,7 @@ public class CharaController : MonoBehaviour
     {
         if (!m_isClimbing) return;
 
-        bool detachPressed = false;
-        if (m_detachInput != null)
-        {
-            detachPressed = m_detachInput.action.WasPressedThisFrame();
-        }
-
-        if (detachPressed)
+        if (WasDetachPressed())
         {
             StopClimb(false);
             return;
@@ -498,12 +520,10 @@ public class CharaController : MonoBehaviour
             ? m_climbSideOffsetDirection
             : -transform.forward;
 
-        m_isClimbing = false;
-        m_currentClimbRope = null;
+        ExitClimbState();
 
         if (m_rb != null)
         {
-            m_rb.useGravity = true;
             m_rb.linearVelocity = Vector3.zero;
 
             if (jumpOff)
@@ -520,6 +540,17 @@ public class CharaController : MonoBehaviour
             m_jumpTimer = 0f;
             m_coyoteTimer = 0f;
             m_ignoreJumpUntilReleased = true;
+        }
+    }
+
+    private void ExitClimbState()
+    {
+        m_isClimbing = false;
+        m_currentClimbRope = null;
+
+        if (m_rb != null)
+        {
+            m_rb.useGravity = true;
         }
     }
 
@@ -556,11 +587,6 @@ public class CharaController : MonoBehaviour
         // choose effective starting length: at least currentDistance to avoid instant snap, but then shrink to configured over a short time
         float startLength = Mathf.Max(currentDistance, configuredLength);
 
-        if (m_autoTuneSwing)
-        {
-            ApplySwingPreset(startLength);
-        }
-
         // pick the rigidbody to connect to: prefer the collider's attached rigidbody, else rope's anchor rb
         Rigidbody connectRb = null;
         if (m_currentRopeCollider != null)
@@ -572,26 +598,26 @@ public class CharaController : MonoBehaviour
             connectRb = m_currentSwingRope.AnchorRb;
         }
 
-        if (m_useAnchorRigidbody && connectRb != null && connectRb != m_rb)
+        m_swingJoint.autoConfigureConnectedAnchor = false;
+        if (connectRb != null && connectRb != m_rb)
         {
             m_swingJoint.connectedBody = connectRb;
-            m_swingJoint.autoConfigureConnectedAnchor = false;
             // connectedAnchor is in connectedBody local space
             m_swingJoint.connectedAnchor = connectRb.transform.InverseTransformPoint(m_attachPoint);
         }
         else
         {
             m_swingJoint.connectedBody = null;
-            m_swingJoint.autoConfigureConnectedAnchor = false;
             m_swingJoint.connectedAnchor = m_attachPoint;
         }
 
         // set joint distances based on chosen start length. If startLength > configuredLength we will shrink it smoothly.
+        GetSwingJointSettings(startLength, out float swingSpring, out float swingDamper);
         m_swingJoint.maxDistance = startLength;
-        m_swingJoint.minDistance = startLength * m_swingMinDistanceRatio;
-        m_swingJoint.spring = m_swingSpring;
-        m_swingJoint.damper = m_swingDamper;
-        m_swingJoint.tolerance = m_swingTolerance;
+        m_swingJoint.minDistance = startLength * kSwingMinDistanceRatio;
+        m_swingJoint.spring = swingSpring;
+        m_swingJoint.damper = swingDamper;
+        m_swingJoint.tolerance = kSwingTolerance;
         m_swingJoint.enableCollision = false;
 
         // disable rope end colliders to avoid retriggers and start visual follow
@@ -615,10 +641,8 @@ public class CharaController : MonoBehaviour
         if (startLength > configuredLength + 0.001f)
         {
             if (m_shrinkRoutine != null) StopCoroutine(m_shrinkRoutine);
-            m_shrinkRoutine = StartCoroutine(ShrinkJointRoutine(startLength, configuredLength, m_jointShrinkDuration));
+            m_shrinkRoutine = StartCoroutine(ShrinkJointRoutine(startLength, configuredLength, kSwingAttachShrinkDuration));
         }
-
-        Debug.Log($"Swing attach: attachParam={m_attachParam:F2} startLength={startLength:F2} targetLength={configuredLength:F2} spring={m_swingSpring:F1} damper={m_swingDamper:F1} attachedToRb={(m_swingJoint.connectedBody!=null)}");
     }
 
     private IEnumerator ShrinkJointRoutine(float fromLength, float toLength, float duration)
@@ -630,48 +654,28 @@ public class CharaController : MonoBehaviour
             float alpha = Mathf.SmoothStep(0f, 1f, t / duration);
             float len = Mathf.Lerp(fromLength, toLength, alpha);
             m_swingJoint.maxDistance = len;
-            m_swingJoint.minDistance = len * m_swingMinDistanceRatio;
+            m_swingJoint.minDistance = len * kSwingMinDistanceRatio;
             yield return new WaitForFixedUpdate();
         }
         if (m_swingJoint != null)
         {
             m_swingJoint.maxDistance = toLength;
-            m_swingJoint.minDistance = toLength * m_swingMinDistanceRatio;
+            m_swingJoint.minDistance = toLength * kSwingMinDistanceRatio;
         }
         m_shrinkRoutine = null;
     }
 
-    private void ApplySwingPreset(float ropeLength)
+    private void GetSwingJointSettings(float ropeLength, out float swingSpring, out float swingDamper)
     {
         float length = Mathf.Max(0.5f, ropeLength);
-
-        float presetMul = 1f;
-        switch (m_swingPreset)
-        {
-            case SwingPreset.Short: presetMul = 1.5f; break;   // corde courte = ressort plus rigide
-            case SwingPreset.Default: presetMul = 1f; break;
-            case SwingPreset.Long: presetMul = 0.6f; break;    // corde longue = ressort plus souple
-        }
-
-        // regle simple : spring = base / longueur ; damper = spring * facteur
         float baseFactor = 120f; 
-        float computedSpring = Mathf.Clamp(baseFactor / length * presetMul, 20f, 2000f);
-        float computedDamper = Mathf.Clamp(computedSpring * 0.08f, 0.5f, 200f);
-
-        m_swingSpring = computedSpring;
-        m_swingDamper = computedDamper;
+        swingSpring = Mathf.Clamp(baseFactor / length, 20f, 2000f);
+        swingDamper = Mathf.Clamp(swingSpring * 0.08f, 0.5f, 200f);
     }
 
     private void HandleSwingPhysics()
     {
         if (!m_isSwinging || m_swingJoint == null || m_currentSwingRope == null || m_rb == null) return;
-
-        // Do NOT overwrite connectedAnchor each frame. If connectedBody == null, connectedAnchor already contains the world attach point.
-        if (m_swingJoint.connectedBody == null)
-        {
-            // cache the world-space anchor used by the joint
-            m_cachedAnchorPosition = (Vector3)m_swingJoint.connectedAnchor;
-        }
 
         Vector2 rawInput = m_moveInput != null ? m_moveInput.action.ReadValue<Vector2>() : Vector2.zero;
 
@@ -689,8 +693,10 @@ public class CharaController : MonoBehaviour
         // attachment factor: if attached closer to tail, provide a bit more force/charge (gameplay tweak)
         float attachFactor = Mathf.Lerp(0.6f, 1.2f, Mathf.Clamp01(m_attachParam));
 
-        // charge logic: add charge proportionally to tangential speed and attach factor
-        m_swingCharge = Mathf.Clamp(m_swingCharge + tangentialSpeed * m_chargePerSpeed * attachFactor * Time.fixedDeltaTime, 0f, m_maxCharge);
+        float charge01 = SwingChargeNormalized;
+        float chargeGainMultiplier = Mathf.Lerp(kSwingChargeGainAtEmpty, kSwingChargeGainAtMax, charge01);
+        float chargeGain = tangentialSpeed * m_chargePerSpeed * attachFactor * chargeGainMultiplier * Time.fixedDeltaTime;
+        m_swingCharge = Mathf.Clamp(m_swingCharge + chargeGain, 0f, m_maxCharge);
 
         // steer the tangential velocity toward the requested move direction so the rope feels pilotable.
         if (m_moveDirection.sqrMagnitude > 0.01f)
@@ -706,16 +712,18 @@ public class CharaController : MonoBehaviour
                     1f - Mathf.Exp(-m_swingSteerResponsiveness * Time.fixedDeltaTime)
                 ).normalized;
 
+                float bottomFactor = Mathf.Clamp01(Vector3.Dot(dir, Vector3.down));
+                float maxTangentialSpeed = m_maxSwingTangentialSpeed * kSwingTangentialSpeedMultiplier;
                 float targetTangentialSpeed = Mathf.Max(
                     tangentialSpeed,
-                    Mathf.Lerp(m_walkSpeed, m_runSpeed * 1.35f, inputStrength)
+                    Mathf.Lerp(m_runSpeed * 1.1f, maxTangentialSpeed, inputStrength)
                 );
                 float newTangentialSpeed = Mathf.MoveTowards(
                     tangentialSpeed,
                     targetTangentialSpeed,
-                    m_swingForce * attachFactor * Time.fixedDeltaTime
+                    m_swingForce * attachFactor * Mathf.Lerp(1f, kSwingBottomAccelerationBoost, bottomFactor) * Time.fixedDeltaTime
                 );
-                newTangentialSpeed = Mathf.Min(newTangentialSpeed, m_maxSwingTangentialSpeed);
+                newTangentialSpeed = Mathf.Min(newTangentialSpeed, maxTangentialSpeed);
 
                 Vector3 newTangentialVelocity = steeredDirection * newTangentialSpeed;
                 m_rb.linearVelocity = dir * radialVel + newTangentialVelocity;
@@ -727,15 +735,15 @@ public class CharaController : MonoBehaviour
         // --- Contraintes supplémentaires pour éviter d'aller trop loin et empêcher de passer au-dessus de l'ancre ---
         float currentDist = anchorToPlayer.magnitude;
         float jointMax = (m_swingJoint != null) ? m_swingJoint.maxDistance : m_currentSwingRope.RopeLength;
-        float allowedMax = jointMax * m_swingMaxDistanceMultiplier;
+        float allowedMax = jointMax * kSwingMaxDistanceMultiplier;
 
         // 1) limiter la distance radiale — correction en douceur via MovePosition
         if (currentDist > allowedMax)
         {
-            Vector3 targetPos = anchorPosition + dir * Mathf.Max(allowedMax, m_swingMinDistance);
-            Vector3 newPos = Vector3.Lerp(m_rb.position, targetPos, 1f - Mathf.Exp(-m_correctionSpeed * Time.fixedDeltaTime));
+            Vector3 targetPos = anchorPosition + dir * Mathf.Max(allowedMax, kSwingMinDistance);
+            Vector3 newPos = Vector3.Lerp(m_rb.position, targetPos, 1f - Mathf.Exp(-kSwingCorrectionSpeed * Time.fixedDeltaTime));
             // damp radial outward velocity gradually
-            float radialVelToRemove = Mathf.Max(0f, radialVel) * m_radialDampingFactor;
+            float radialVelToRemove = Mathf.Max(0f, radialVel) * kSwingRadialDampingFactor;
             Vector3 newVel = m_rb.linearVelocity - dir * radialVelToRemove;
             m_rb.MovePosition(newPos);
             m_rb.linearVelocity = newVel;
@@ -746,13 +754,12 @@ public class CharaController : MonoBehaviour
         }
 
         // 2) empêcher de dépasser l'ancre (ne jamais passer au-dessus) — lissage vertical
-        if (m_preventCrossTop)
         {
             float playerYrelative = m_rb.position.y - anchorPosition.y;
-            if (playerYrelative > -m_topClearance)
+            if (playerYrelative > -kSwingTopClearance)
             {
                 // desired y just below anchor
-                float targetY = anchorPosition.y - m_topClearance;
+                float targetY = anchorPosition.y - kSwingTopClearance;
 
                 // remove upward velocity smoothly
                 Vector3 v = m_rb.linearVelocity;
@@ -761,7 +768,7 @@ public class CharaController : MonoBehaviour
 
                 // gently pull down towards target
                 float deltaY = targetY - m_rb.position.y;
-                m_rb.AddForce(Vector3.up * (deltaY) * m_topClampSpeed, ForceMode.Acceleration);
+                m_rb.AddForce(Vector3.up * (deltaY) * kSwingTopClampSpeed, ForceMode.Acceleration);
             }
         }
 
@@ -779,83 +786,85 @@ public class CharaController : MonoBehaviour
         if (desiredForward.sqrMagnitude > 0.001f)
         {
             Quaternion q = Quaternion.LookRotation(desiredForward, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, q, m_swingRotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, q, kSwingRotationSpeed * Time.deltaTime);
         }
+    }
+
+    private Vector3 GetCurrentSwingAnchorPosition()
+    {
+        if (m_swingJoint == null) return m_attachPoint;
+
+        if (m_swingJoint.connectedBody != null)
+            return m_swingJoint.connectedBody.transform.TransformPoint(m_swingJoint.connectedAnchor);
+
+        return m_swingJoint.connectedAnchor;
+    }
+
+    private Vector3 ComputeSwingLaunchVelocity(Vector3 releaseVelocity, Vector3 anchorPosition)
+    {
+        Vector3 anchorToPlayer = transform.position - anchorPosition;
+        if (anchorToPlayer.sqrMagnitude < 1e-6f) anchorToPlayer = Vector3.down;
+
+        Vector3 radialDirection = anchorToPlayer.normalized;
+        Vector3 tangentialVelocity = releaseVelocity - radialDirection * Vector3.Dot(releaseVelocity, radialDirection);
+        float charge01 = SwingChargeNormalized;
+
+        Vector3 planarDirection = GetCameraPlanarForward();
+        Vector3 planarVelocity = Vector3.ProjectOnPlane(tangentialVelocity, Vector3.up);
+        if (planarDirection.sqrMagnitude < 0.001f)
+        {
+            planarDirection = planarVelocity.sqrMagnitude > 0.001f
+                ? planarVelocity.normalized
+                : Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+        }
+
+        float forwardMomentum = Mathf.Max(0f, Vector3.Dot(planarVelocity, planarDirection));
+        float planarSpeed = m_releaseBaseSpeed
+                          + charge01 * m_releaseChargeSpeedBonus
+                          + forwardMomentum * (1f + m_releaseMomentumInfluence);
+
+        float releaseHeightFactor = Mathf.Clamp01(Vector3.Dot(radialDirection, Vector3.up) * 0.5f + 0.5f);
+        float upwardSpeed = Mathf.Max(
+            m_jumpVelocity * kSwingLaunchJumpFactor,
+            m_releaseBaseUpwardSpeed
+            + charge01 * m_releaseChargeUpwardBonus
+            + planarVelocity.magnitude * 0.18f
+            + releaseHeightFactor * 1.5f
+        );
+
+        return planarDirection * planarSpeed + Vector3.up * upwardSpeed;
     }
 
     private void StopSwing(bool jumpOff = false)
     {
-        if (!m_isSwinging) return;
+        if (!m_isSwinging || m_rb == null) return;
 
-        // capture current velocity before destroying joint
-        Vector3 releaseVelocity = m_rb != null ? m_rb.linearVelocity : Vector3.zero;
+        Vector3 releaseVelocity = m_rb.linearVelocity;
+        Vector3 anchorPosition = GetCurrentSwingAnchorPosition();
+        Vector3 launchVelocity = jumpOff
+            ? ComputeSwingLaunchVelocity(releaseVelocity, anchorPosition)
+            : releaseVelocity;
 
-        // stop visual follow immediately
-        SwingRope ropeToReactivate = m_currentSwingRope;
-        if (ropeToReactivate != null)
-        {
-            ropeToReactivate.StopFollow();
-        }
-
-        m_isSwinging = false;
-
-        // destroy joint
-        if (m_swingJoint != null)
-        {
-            Destroy(m_swingJoint);
-            m_swingJoint = null;
-        }
-
-        // reapply velocity captured
-        if (m_rb != null)
-        {
-            m_rb.linearVelocity = releaseVelocity;
-        }
+        SwingRope ropeToReactivate = DetachSwingInternals();
+        m_rb.linearVelocity = Vector3.zero;
+        m_rb.angularVelocity = Vector3.zero;
 
         if (jumpOff)
         {
-            // compute radial and tangential components relative to attach point at release moment
-            Vector3 anchorPosition = (ropeToReactivate != null && ropeToReactivate.AnchorRb != null) ? (ropeToReactivate.AnchorRb.position) :
-                                     (ropeToReactivate != null ? m_attachPoint : transform.position);
-            Vector3 anchorToPlayer = transform.position - anchorPosition;
-            if (anchorToPlayer.sqrMagnitude < 1e-6f) anchorToPlayer = Vector3.down;
-            Vector3 dir = anchorToPlayer.normalized;
-            Vector3 vel = m_rb != null ? m_rb.linearVelocity : Vector3.zero;
-            float radialVel = Vector3.Dot(vel, dir);
-            Vector3 tangentialVel = vel - dir * radialVel;
-            float tangentialSpeed = tangentialVel.magnitude;
-            Vector3 tangentialDir = tangentialSpeed > 1e-4f ? tangentialVel.normalized : (transform.forward + Vector3.up).normalized;
-
-            // compute impulse: inherit tangential inertia + charge boost + input direction influence + upward bias
-            Vector3 inertiaImpulse = tangentialDir * (tangentialSpeed * m_inertiaMultiplier);
-            Vector3 chargeImpulse = tangentialDir * (m_swingCharge * m_chargeBoostMultiplier);
-
-            // add some influence from player input direction
-            Vector3 inputDirWorld = (m_moveDirection.sqrMagnitude > 0.01f) ? m_moveDirection.normalized : Vector3.zero;
-            Vector3 inputImpulse = Vector3.zero;
-            if (inputDirWorld.sqrMagnitude > 0.01f)
-            {
-                inputImpulse = inputDirWorld * (m_swingCharge * m_chargeBoostMultiplier * 0.6f + tangentialSpeed * 0.4f);
-            }
-
-            // upward bias: scaled with charge and also with the vertical component of tangential direction
-            Vector3 upwardBias = Vector3.up * (m_swingCharge * m_chargeBoostMultiplier * 0.6f + Mathf.Max(0f, tangentialDir.y) * tangentialSpeed * 0.6f);
-
-            Vector3 totalImpulse = inertiaImpulse + chargeImpulse + inputImpulse + upwardBias;
-
-            if (m_rb != null)
-            {
-                m_rb.AddForce(totalImpulse, ForceMode.VelocityChange);
-            }
-
+            m_rb.AddForce(launchVelocity, ForceMode.VelocityChange);
             m_isJumping = true;
             m_jumpTimer = 0f;
+            m_coyoteTimer = 0f;
+        }
+        else
+        {
+            m_rb.linearVelocity = launchVelocity;
         }
 
         // réactiver les colliders aprés un délai configurable pour éviter retriggers immédiats
         if (ropeToReactivate != null)
         {
-            StartCoroutine(ReenableEndCollidersCoroutine(m_reenableEndCollidersDelay, ropeToReactivate));
+            StartCoroutine(ReenableEndCollidersCoroutine(ropeToReactivate));
         }
 
         // clear reference to current swing rope and collider
@@ -866,9 +875,47 @@ public class CharaController : MonoBehaviour
         m_swingCharge = 0f;
     }
 
-    private IEnumerator ReenableEndCollidersCoroutine(float delay, SwingRope rope)
+    private SwingRope DetachSwingInternals()
     {
-        yield return new WaitForSeconds(delay);
+        SwingRope ropeToReactivate = m_currentSwingRope;
+        if (ropeToReactivate != null)
+        {
+            ropeToReactivate.StopFollow();
+        }
+
+        m_isSwinging = false;
+
+        if (m_shrinkRoutine != null)
+        {
+            StopCoroutine(m_shrinkRoutine);
+            m_shrinkRoutine = null;
+        }
+
+        if (m_swingJoint != null)
+        {
+            Destroy(m_swingJoint);
+            m_swingJoint = null;
+        }
+
+        return ropeToReactivate;
+    }
+
+    private void ResetSwingRuntimeImmediately()
+    {
+        SwingRope ropeToReset = DetachSwingInternals();
+        if (ropeToReset != null)
+        {
+            ropeToReset.SetEndCollidersEnabled(true);
+        }
+
+        m_currentSwingRope = null;
+        m_currentRopeCollider = null;
+        m_swingCharge = 0f;
+    }
+
+    private IEnumerator ReenableEndCollidersCoroutine(SwingRope rope)
+    {
+        yield return new WaitForSeconds(kSwingColliderReenableDelay);
         if (rope != null)
         {
             rope.SetEndCollidersEnabled(true);
@@ -905,11 +952,6 @@ public class CharaController : MonoBehaviour
             }
         }
 
-        if (other.CompareTag("SwingRope"))
-        {
-            m_currentRope = other.transform;
-            Debug.Log("Detecte SwingRope trigger: " + other.name);
-        }
     }
 
     private void OnTriggerExit(Collider other)
@@ -932,12 +974,6 @@ public class CharaController : MonoBehaviour
         {
             m_currentSwingRope = null;
             Debug.Log("Left SwingRope: " + swingRope.name);
-        }
-
-        if (other.CompareTag("SwingRope") && other.transform == m_currentRope)
-        {
-            m_currentRope = null;
-            Debug.Log("Left SwingRope: " + other.name);
         }
 
         if (other == m_currentRopeCollider)
