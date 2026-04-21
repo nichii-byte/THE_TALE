@@ -250,10 +250,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -262,7 +262,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -271,7 +271,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -342,10 +342,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -354,7 +354,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -363,7 +363,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -413,10 +413,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -425,7 +425,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -434,7 +434,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -505,10 +505,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -517,7 +517,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -526,7 +526,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -602,10 +602,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -614,7 +614,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -623,7 +623,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -694,10 +694,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -706,7 +706,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -715,7 +715,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -786,10 +786,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -798,7 +798,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -807,7 +807,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -859,8 +859,8 @@ HingeJoint:
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
   m_UseSpring: 0
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -869,7 +869,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -878,7 +878,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -949,10 +949,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -961,7 +961,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -1020,10 +1020,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -1032,7 +1032,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -1041,7 +1041,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
@@ -1096,10 +1096,10 @@ HingeJoint:
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
   m_ConnectedAnchor: {x: 0, y: 0, z: 0}
-  m_UseSpring: 0
+  m_UseSpring: 1
   m_Spring:
-    spring: 0
-    damper: 0
+    spring: 20
+    damper: 1
     targetPosition: 0
   m_UseMotor: 0
   m_Motor:
@@ -1108,7 +1108,7 @@ HingeJoint:
     freeSpin: 0
   m_UseLimits: 0
   m_ExtendedLimits: 0
-  m_UseAcceleration: 0
+  m_UseAcceleration: 1
   m_Limits:
     min: 0
     max: 0
@@ -1117,7 +1117,7 @@ HingeJoint:
     contactDistance: 0
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
-  m_EnableCollision: 0
+  m_EnableCollision: 1
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1

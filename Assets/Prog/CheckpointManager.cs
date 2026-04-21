@@ -37,7 +37,7 @@ public class CheckpointManager : MonoBehaviour
 
     private void Start()
     {
-        ResetSessionState();
+        // Session reset is now triggered by the UI Play button via BeginSession()
     }
 
     private void OnDisable()
@@ -75,6 +75,10 @@ public class CheckpointManager : MonoBehaviour
         if (m_isRespawning)
             return;
 
+        // Report death to tracker / UI
+        DeathTracker.Instance?.RecordDeath(deathReason);
+        GameUIManager.Instance?.OnPlayerDied(deathReason);
+
         ResolvePlayerReference();
         if (m_player == null)
         {
@@ -96,6 +100,12 @@ public class CheckpointManager : MonoBehaviour
         {
             m_player.RespawnAt(m_currentSpawnPosition, m_currentSpawnRotation);
         }
+    }
+
+    // Public method to be called by UI when the player presses Play
+    public void BeginSession()
+    {
+        ResetSessionState();
     }
 
     private IEnumerator RespawnRoutine()
