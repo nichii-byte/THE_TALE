@@ -1,39 +1,125 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
 {
+    private enum ActivationMode
+    {
+        TriggerZone,
+        Timer
+    }
+
+    [Header("Mode")]
+    [SerializeField] private ActivationMode m_activationMode = ActivationMode.TriggerZone;
+    [SerializeField] private bool m_restartSequenceWhenTriggeredAgain = true;
+
+    [Header("References")]
     [SerializeField] private Transform m_handRoot;
+    [SerializeField] private Transform[] m_additionalMovingRoots;
+    [SerializeField] private Transform m_retractedPoint;
+    [SerializeField] private Transform m_extendedPoint;
+    [SerializeField] private Collider m_activationTrigger;
     [SerializeField] private Collider m_damageCollider;
+
+    [Header("Fallback Motion")]
     [SerializeField] private Vector3 m_extendedLocalOffset = new Vector3(0f, 1f, 0f);
+
+    [Header("Sequence")]
     [SerializeField] private float m_extendDuration = 0.18f;
     [SerializeField] private float m_holdDuration = 0.8f;
     [SerializeField] private float m_retractDuration = 0.22f;
+    [SerializeField] private float m_retriggerCooldown = 0.1f;
 
-    private Vector3 m_hiddenLocalPosition;
+    [Header("Timer")]
+    [SerializeField] private float m_timerInterval = 2f;
+    [SerializeField] private float m_initialTimerDelay = 0f;
+
+    private Vector3 m_defaultRetractedLocalPosition;
+    private Transform[] m_resolvedMovingRoots;
+    private Vector3[] m_resolvedMovingRootWorldOffsets;
     private Coroutine m_sequenceRoutine;
+    private Coroutine m_timerRoutine;
+    private float m_lastTriggerTime = float.NegativeInfinity;
 
     private void Awake()
     {
         if (m_handRoot == null)
             m_handRoot = transform;
 
-        m_hiddenLocalPosition = m_handRoot.localPosition;
+        if (m_damageCollider == null)
+            m_damageCollider = m_handRoot.GetComponent<Collider>();
+
+        if (m_activationTrigger == null)
+            m_activationTrigger = GetComponent<Collider>();
+
+        EnsureTriggerRelay();
+        m_defaultRetractedLocalPosition = m_handRoot.localPosition;
+        CacheMovingRoots();
+    }
+
+    private void OnEnable()
+    {
         ResetRuntimeState();
+    }
+
+    private void OnDisable()
+    {
+        StopRuntimeCoroutines();
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other == null || other.GetComponentInParent<CharaController>() == null)
-            return;
-
-        if (m_sequenceRoutine != null)
-            StopCoroutine(m_sequenceRoutine);
-
-        m_sequenceRoutine = StartCoroutine(EmergeRoutine());
+        TryTriggerFromCollider(other);
     }
 
     public void ResetRuntimeState()
+    {
+        StopRuntimeCoroutines();
+        m_lastTriggerTime = float.NegativeInfinity;
+
+        ApplyActivationTriggerState();
+        SetDamageState(false);
+        SetHandLocalPosition(GetRetractedLocalPosition());
+
+        if (m_activationMode == ActivationMode.Timer && isActiveAndEnabled)
+        {
+            m_timerRoutine = StartCoroutine(TimerRoutine());
+        }
+    }
+
+    public void TriggerTrap()
+    {
+        if (!isActiveAndEnabled || m_handRoot == null)
+            return;
+
+        if (Time.time < m_lastTriggerTime + Mathf.Max(0f, m_retriggerCooldown))
+            return;
+
+        if (m_sequenceRoutine != null)
+        {
+            if (!m_restartSequenceWhenTriggeredAgain)
+                return;
+
+            StopCoroutine(m_sequenceRoutine);
+        }
+
+        m_lastTriggerTime = Time.time;
+        m_sequenceRoutine = StartCoroutine(EmergeRoutine());
+    }
+
+    public void TryTriggerFromCollider(Collider other)
+    {
+        if (m_activationMode != ActivationMode.TriggerZone)
+            return;
+
+        if (other == null || other.GetComponentInParent<CharaController>() == null)
+            return;
+
+        TriggerTrap();
+    }
+
+    private void StopRuntimeCoroutines()
     {
         if (m_sequenceRoutine != null)
         {
@@ -41,14 +127,138 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
             m_sequenceRoutine = null;
         }
 
-        if (m_handRoot != null)
+        if (m_timerRoutine != null)
         {
-            m_handRoot.localPosition = m_hiddenLocalPosition;
+            StopCoroutine(m_timerRoutine);
+            m_timerRoutine = null;
+        }
+    }
+
+    private void ApplyActivationTriggerState()
+    {
+        if (m_activationTrigger != null)
+            m_activationTrigger.enabled = m_activationMode == ActivationMode.TriggerZone;
+    }
+
+    private void EnsureTriggerRelay()
+    {
+        if (m_activationTrigger == null)
+            return;
+
+        GameObject triggerObject = m_activationTrigger.gameObject;
+        if (triggerObject == gameObject)
+            return;
+
+        EmergingHandsTrapTriggerRelay relay = triggerObject.GetComponent<EmergingHandsTrapTriggerRelay>();
+        if (relay == null)
+            relay = triggerObject.AddComponent<EmergingHandsTrapTriggerRelay>();
+
+        relay.Initialize(this);
+    }
+
+    private void SetDamageState(bool isActive)
+    {
+        if (m_damageCollider != null)
+            m_damageCollider.enabled = isActive;
+    }
+
+    private Vector3 GetRetractedLocalPosition()
+    {
+        if (m_retractedPoint != null)
+            return ToHandParentLocalPosition(m_retractedPoint.position);
+
+        return m_defaultRetractedLocalPosition;
+    }
+
+    private Vector3 GetExtendedLocalPosition()
+    {
+        if (m_extendedPoint != null)
+            return ToHandParentLocalPosition(m_extendedPoint.position);
+
+        return GetRetractedLocalPosition() + m_extendedLocalOffset;
+    }
+
+    private Vector3 ToHandParentLocalPosition(Vector3 worldPosition)
+    {
+        Transform handParent = m_handRoot.parent;
+        return handParent != null ? handParent.InverseTransformPoint(worldPosition) : worldPosition;
+    }
+
+    private void SetHandLocalPosition(Vector3 localPosition)
+    {
+        if (m_handRoot != null)
+            m_handRoot.localPosition = localPosition;
+
+        if (m_resolvedMovingRoots == null || m_resolvedMovingRootWorldOffsets == null)
+            return;
+
+        Vector3 handWorldPosition = ToWorldPosition(m_handRoot, localPosition);
+        for (int i = 0; i < m_resolvedMovingRoots.Length; i++)
+        {
+            Transform movingRoot = m_resolvedMovingRoots[i];
+            if (movingRoot == null)
+                continue;
+
+            Vector3 targetWorldPosition = handWorldPosition + m_resolvedMovingRootWorldOffsets[i];
+            Transform movingRootParent = movingRoot.parent;
+            movingRoot.localPosition = movingRootParent != null
+                ? movingRootParent.InverseTransformPoint(targetWorldPosition)
+                : targetWorldPosition;
+        }
+    }
+
+    private void CacheMovingRoots()
+    {
+        if (m_handRoot == null)
+        {
+            m_resolvedMovingRoots = null;
+            m_resolvedMovingRootWorldOffsets = null;
+            return;
         }
 
-        if (m_damageCollider != null)
+        List<Transform> movingRoots = new List<Transform>();
+        if (m_additionalMovingRoots != null)
         {
-            m_damageCollider.enabled = false;
+            for (int i = 0; i < m_additionalMovingRoots.Length; i++)
+            {
+                Transform candidate = m_additionalMovingRoots[i];
+                if (candidate == null || candidate == m_handRoot || movingRoots.Contains(candidate))
+                    continue;
+
+                movingRoots.Add(candidate);
+            }
+        }
+
+        m_resolvedMovingRoots = movingRoots.ToArray();
+        m_resolvedMovingRootWorldOffsets = new Vector3[m_resolvedMovingRoots.Length];
+
+        Vector3 handWorldPosition = m_handRoot.position;
+        for (int i = 0; i < m_resolvedMovingRoots.Length; i++)
+        {
+            m_resolvedMovingRootWorldOffsets[i] = m_resolvedMovingRoots[i].position - handWorldPosition;
+        }
+    }
+
+    private Vector3 ToWorldPosition(Transform target, Vector3 localPosition)
+    {
+        if (target == null)
+            return localPosition;
+
+        Transform targetParent = target.parent;
+        return targetParent != null ? targetParent.TransformPoint(localPosition) : localPosition;
+    }
+
+    private IEnumerator TimerRoutine()
+    {
+        if (m_initialTimerDelay > 0f)
+            yield return new WaitForSeconds(m_initialTimerDelay);
+
+        while (true)
+        {
+            yield return EmergeRoutine();
+
+            float waitDuration = Mathf.Max(0.01f, m_timerInterval);
+            yield return new WaitForSeconds(waitDuration);
         }
     }
 
@@ -57,29 +267,22 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         if (m_handRoot == null)
             yield break;
 
-        if (m_damageCollider != null)
-        {
-            m_damageCollider.enabled = false;
-        }
+        Vector3 retractedPosition = GetRetractedLocalPosition();
+        Vector3 extendedPosition = GetExtendedLocalPosition();
 
-        Vector3 extendedPosition = m_hiddenLocalPosition + m_extendedLocalOffset;
+        SetDamageState(false);
+        SetHandLocalPosition(retractedPosition);
 
-        yield return MoveHand(m_hiddenLocalPosition, extendedPosition, m_extendDuration);
+        yield return MoveHand(retractedPosition, extendedPosition, m_extendDuration);
 
-        if (m_damageCollider != null)
-        {
-            m_damageCollider.enabled = true;
-        }
+        SetDamageState(true);
 
         if (m_holdDuration > 0f)
             yield return new WaitForSeconds(m_holdDuration);
 
-        if (m_damageCollider != null)
-        {
-            m_damageCollider.enabled = false;
-        }
+        SetDamageState(false);
 
-        yield return MoveHand(extendedPosition, m_hiddenLocalPosition, m_retractDuration);
+        yield return MoveHand(extendedPosition, retractedPosition, m_retractDuration);
         m_sequenceRoutine = null;
     }
 
@@ -96,10 +299,10 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            m_handRoot.localPosition = Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t));
+            SetHandLocalPosition(Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t)));
             yield return null;
         }
 
-        m_handRoot.localPosition = to;
+        SetHandLocalPosition(to);
     }
 }

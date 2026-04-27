@@ -220,7 +220,7 @@ GameObject:
   - component: {fileID: 7708119334941940042}
   - component: {fileID: 4588128283825613878}
   m_Layer: 0
-  m_Name: ClimbRope
+  m_Name: P_ClimbRope
   m_TagString: SwingRope
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
