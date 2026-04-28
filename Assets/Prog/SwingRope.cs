@@ -18,6 +18,8 @@ public class SwingRope : MonoBehaviour
     [SerializeField] private Vector3 m_followOffset = Vector3.zero;
 
     private Transform m_followTarget;
+    private Transform m_followVisualPoint;
+    private Rigidbody m_followVisualRb;
     private Rigidbody m_tailRb;
 
     public Vector3 AnchorPosition => m_anchorPoint != null ? m_anchorPoint.position : transform.position;
@@ -61,7 +63,7 @@ public class SwingRope : MonoBehaviour
 
     private void Update()
     {
-        if (m_tailRb == null)
+        if (GetActiveFollowRigidbody() == null)
         {
             UpdateTailFollow(Time.deltaTime, false);
         }
@@ -69,7 +71,7 @@ public class SwingRope : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (m_tailRb != null)
+        if (GetActiveFollowRigidbody() != null)
         {
             UpdateTailFollow(Time.fixedDeltaTime, true);
         }
@@ -85,18 +87,20 @@ public class SwingRope : MonoBehaviour
         }
     }
 
-    public void StartFollow(Transform target)
+    public void StartFollow(Transform target, Transform attachedVisualPoint = null)
     {
         if (target == null) return;
 
         m_followTarget = target;
-        CacheTailRigidbody();
+        SetFollowVisualPoint(attachedVisualPoint);
         SnapTailToTarget();
     }
 
     public void StopFollow()
     {
         m_followTarget = null;
+        m_followVisualPoint = null;
+        m_followVisualRb = null;
     }
 
     private void UpdateTailFollow(float deltaTime, bool useRigidBody)
@@ -104,41 +108,65 @@ public class SwingRope : MonoBehaviour
         if (m_followTarget == null)
             return;
 
-        Transform tailTransform = ResolveTailTransform();
-        if (tailTransform == null)
+        Transform movingTransform = ResolveFollowTransform();
+        if (movingTransform == null)
             return;
 
+        Rigidbody activeRb = GetActiveFollowRigidbody();
         Vector3 targetPosition = m_followTarget.position + m_followOffset;
         float factor = 1f - Mathf.Exp(-Mathf.Max(0.01f, m_tailFollowSpeed) * deltaTime);
-        Vector3 nextPosition = Vector3.Lerp(tailTransform.position, targetPosition, factor);
+        Vector3 nextPosition = Vector3.Lerp(movingTransform.position, targetPosition, factor);
 
-        if (useRigidBody && m_tailRb != null)
+        if (useRigidBody && activeRb != null)
         {
-            m_tailRb.MovePosition(nextPosition);
+            activeRb.MovePosition(nextPosition);
         }
         else
         {
-            tailTransform.position = nextPosition;
+            movingTransform.position = nextPosition;
         }
     }
 
     private void SnapTailToTarget()
     {
-        Transform tailTransform = ResolveTailTransform();
-        if (m_followTarget == null || tailTransform == null)
+        Transform movingTransform = ResolveFollowTransform();
+        if (m_followTarget == null || movingTransform == null)
             return;
 
+        Rigidbody activeRb = GetActiveFollowRigidbody();
         Vector3 targetPosition = m_followTarget.position + m_followOffset;
-        if (m_tailRb != null)
+        if (activeRb != null)
         {
-            m_tailRb.position = targetPosition;
-            m_tailRb.linearVelocity = Vector3.zero;
-            m_tailRb.angularVelocity = Vector3.zero;
+            activeRb.position = targetPosition;
+            activeRb.linearVelocity = Vector3.zero;
+            activeRb.angularVelocity = Vector3.zero;
         }
         else
         {
-            tailTransform.position = targetPosition;
+            movingTransform.position = targetPosition;
         }
+    }
+
+    private void SetFollowVisualPoint(Transform attachedVisualPoint)
+    {
+        m_followVisualPoint = attachedVisualPoint != null ? attachedVisualPoint : ResolveTailTransform();
+        m_followVisualRb = m_followVisualPoint != null ? m_followVisualPoint.GetComponent<Rigidbody>() : null;
+    }
+
+    private Transform ResolveFollowTransform()
+    {
+        if (m_followVisualPoint != null)
+            return m_followVisualPoint;
+
+        return ResolveTailTransform();
+    }
+
+    private Rigidbody GetActiveFollowRigidbody()
+    {
+        if (m_followVisualRb != null)
+            return m_followVisualRb;
+
+        return m_tailRb;
     }
 
     private Transform ResolveTailTransform()

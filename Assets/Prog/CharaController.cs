@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 public class CharaController : MonoBehaviour, IRuntimeResettable
 {
     private const float kSwingMinDistance = 0.2f;
+    private const float kSwingTopClearance = 0.08f;
     private const float kSwingRotationSpeed = 6f;
     private const float kSwingColliderReenableDelay = 1f;
     private const float kSwingLaunchJumpFactor = 0.48f;
@@ -70,7 +71,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     [Header("Input")]
     [SerializeField] private InputActionReference m_moveInput;
     [SerializeField] private InputActionReference m_runInput;
-    [SerializeField] private InputActionReference m_attackInput;
     [SerializeField] private InputActionReference m_jumpInput;
     [SerializeField] private InputActionReference m_detachInput;
 
@@ -107,15 +107,11 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     public float SwingChargeNormalized => m_maxCharge > 0f ? Mathf.Clamp01(m_swingCharge / m_maxCharge) : 0f;
     private Vector3 m_swingAxis = Vector3.forward;
     private Vector3 m_swingPlaneNormal = Vector3.right;
-    private InputAction m_attackAction;
 
     private void Start()
     {
-        ResolveOptionalInputActions();
-
         if (m_moveInput != null) m_moveInput.action.Enable();
         if (m_runInput != null) m_runInput.action.Enable();
-        if (m_attackAction != null) m_attackAction.Enable();
         if (m_jumpInput != null) m_jumpInput.action.Enable();
         if (m_detachInput != null) m_detachInput.action.Enable();
 
@@ -235,28 +231,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         return m_detachInput != null && m_detachInput.action.WasPressedThisFrame();
     }
 
-    private bool IsAttackPressed()
-    {
-        return m_attackAction != null && m_attackAction.IsPressed();
-    }
-
     private bool WasSwingLaunchPressed()
     {
         return m_jumpInput != null && m_jumpInput.action.WasPressedThisFrame();
-    }
-
-    private void ResolveOptionalInputActions()
-    {
-        if (m_attackInput != null && m_attackInput.action != null)
-        {
-            m_attackAction = m_attackInput.action;
-            return;
-        }
-
-        if (m_moveInput != null && m_moveInput.action != null && m_moveInput.action.actionMap != null)
-        {
-            m_attackAction = m_moveInput.action.actionMap.FindAction("Attack");
-        }
     }
 
     private float GetClampedLinearDamping(float damping)
@@ -691,9 +668,12 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_swingJoint.tolerance = 0f;
         m_swingJoint.enableCollision = false;
 
-        // disable rope end colliders to avoid retriggers and start visual follow
+        // disable rope end colliders to avoid retriggers and start visual follow on the touched bone
         m_currentSwingRope.SetEndCollidersEnabled(false);
-        m_currentSwingRope.StartFollow(transform);
+        Transform attachedBone = m_currentRopeCollider != null
+            ? (m_currentRopeCollider.attachedRigidbody != null ? m_currentRopeCollider.attachedRigidbody.transform : m_currentRopeCollider.transform)
+            : null;
+        m_currentSwingRope.StartFollow(transform, attachedBone);
 
         Vector2 rawInput = m_moveInput != null ? m_moveInput.action.ReadValue<Vector2>() : Vector2.zero;
         UpdateSwingAxisFromInput(rawInput, true);
@@ -733,6 +713,24 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (swingDirection.sqrMagnitude < 1e-6f)
             swingDirection = Vector3.down;
 
+        Vector3 swingAxisPlanar = Vector3.ProjectOnPlane(m_swingAxis, Vector3.up).normalized;
+        if (swingAxisPlanar.sqrMagnitude < 1e-6f)
+            swingAxisPlanar = Vector3.forward;
+
+        float maxVerticalDirection = -Mathf.Clamp01(kSwingTopClearance / Mathf.Max(ropeDistance, kSwingMinDistance));
+        bool reachedTopLimit = false;
+        if (swingDirection.y > maxVerticalDirection)
+        {
+            float horizontalSign = Mathf.Sign(Vector3.Dot(swingDirection, swingAxisPlanar));
+            if (Mathf.Approximately(horizontalSign, 0f))
+                horizontalSign = 1f;
+
+            float horizontalMagnitude = Mathf.Sqrt(Mathf.Max(0f, 1f - maxVerticalDirection * maxVerticalDirection));
+            swingDirection = (swingAxisPlanar * horizontalSign * horizontalMagnitude) + (Vector3.up * maxVerticalDirection);
+            swingDirection.Normalize();
+            reachedTopLimit = true;
+        }
+
         Vector3 constrainedPosition = anchorPosition + swingDirection * ropeDistance;
         m_rb.MovePosition(constrainedPosition);
 
@@ -741,6 +739,13 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         Vector3 vel = Vector3.ProjectOnPlane(m_rb.linearVelocity, m_swingPlaneNormal);
         Vector3 tangentialVel = vel - dir * Vector3.Dot(vel, dir);
         tangentialVel = Vector3.ClampMagnitude(tangentialVel, Mathf.Max(m_runSpeed, m_maxSwingTangentialSpeed));
+
+        if (reachedTopLimit && Vector3.Dot(tangentialVel, Vector3.up) > 0f)
+        {
+            tangentialVel = Vector3.ProjectOnPlane(tangentialVel, Vector3.up);
+            tangentialVel = Vector3.ProjectOnPlane(tangentialVel, m_swingPlaneNormal);
+        }
+
         m_rb.linearVelocity = tangentialVel;
         float tangentialSpeed = tangentialVel.magnitude;
 
@@ -750,7 +755,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             desiredTangent = -desiredTangent;
 
         float inputStrength = GetSwingInputStrength(rawInput);
-        bool canPumpSwing = IsAttackPressed() && inputStrength > 0f && desiredTangent.sqrMagnitude > 0.001f;
+        bool canPumpSwing = inputStrength > 0f && desiredTangent.sqrMagnitude > 0.001f;
         if (canPumpSwing)
         {
             m_rb.AddForce(desiredTangent * (m_swingForce * attachFactor * inputStrength), ForceMode.Acceleration);
