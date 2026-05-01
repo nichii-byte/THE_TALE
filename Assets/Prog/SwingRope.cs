@@ -8,14 +8,19 @@ public class SwingRope : MonoBehaviour
 
     [Header("Optional visual / colliders")]
     [SerializeField] private Collider[] m_endColliders;
-    [Tooltip("Représente l'extrémité basse / visuelle de la corde.")]
+    [Tooltip("ReprÃ©sente l'extrÃ©mitÃ© basse / visuelle de la corde.")]
     [SerializeField] private Transform m_tailPoint;
 
     [Header("Visual follow")]
     [Tooltip("Vitesse de suivi du point visuel (plus grand = suit plus vite)")]
     [SerializeField] private float m_tailFollowSpeed = 40f;
+    [Tooltip("Decalage applique entre le joueur et l'extremite visuelle de la corde pendant le swing.")]
+    [SerializeField] private Vector3 m_followOffset = Vector3.zero;
 
     private Transform m_followTarget;
+    private Transform m_followVisualPoint;
+    private Rigidbody m_followVisualRb;
+    private Rigidbody m_tailRb;
 
     public Vector3 AnchorPosition => m_anchorPoint != null ? m_anchorPoint.position : transform.position;
 
@@ -44,28 +49,31 @@ public class SwingRope : MonoBehaviour
         {
             anchorRb = m_anchorPoint.GetComponentInParent<Rigidbody>();
         }
+
+        CacheTailRigidbody();
     }
 
     private void OnValidate()
     {
         if (anchorRb == null && m_anchorPoint != null)
             anchorRb = m_anchorPoint.GetComponentInParent<Rigidbody>();
+
+        CacheTailRigidbody();
     }
 
     private void Update()
     {
-        // Only update visual tail when an explicit follow target is set.
-        if (m_followTarget != null)
+        if (GetActiveFollowRigidbody() == null)
         {
-            if (m_tailPoint != null)
-            {
-                m_tailPoint.position = Vector3.Lerp(m_tailPoint.position, m_followTarget.position, Time.deltaTime * m_tailFollowSpeed);
-            }
-            else if (m_endColliders != null && m_endColliders.Length > 0 && m_endColliders[0] != null)
-            {
-                Transform t = m_endColliders[0].transform;
-                t.position = Vector3.Lerp(t.position, m_followTarget.position, Time.deltaTime * m_tailFollowSpeed);
-            }
+            UpdateTailFollow(Time.deltaTime, false);
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        if (GetActiveFollowRigidbody() != null)
+        {
+            UpdateTailFollow(Time.fixedDeltaTime, true);
         }
     }
 
@@ -79,27 +87,103 @@ public class SwingRope : MonoBehaviour
         }
     }
 
-    public void StartFollow(Transform target)
+    public void StartFollow(Transform target, Transform attachedVisualPoint = null)
     {
-        // Set the visual tail immediately to the attach point instead of continuously following the player.
         if (target == null) return;
 
-        if (m_tailPoint != null)
-        {
-            m_tailPoint.position = target.position;
-        }
-        else if (m_endColliders != null && m_endColliders.Length > 0 && m_endColliders[0] != null)
-        {
-            m_endColliders[0].transform.position = target.position;
-        }
-
-        // Do not set m_followTarget here to avoid persistent following which made the tail stick to the player.
-        m_followTarget = null;
+        m_followTarget = target;
+        SetFollowVisualPoint(attachedVisualPoint);
+        SnapTailToTarget();
     }
 
     public void StopFollow()
     {
         m_followTarget = null;
+        m_followVisualPoint = null;
+        m_followVisualRb = null;
+    }
+
+    private void UpdateTailFollow(float deltaTime, bool useRigidBody)
+    {
+        if (m_followTarget == null)
+            return;
+
+        Transform movingTransform = ResolveFollowTransform();
+        if (movingTransform == null)
+            return;
+
+        Rigidbody activeRb = GetActiveFollowRigidbody();
+        Vector3 targetPosition = m_followTarget.position + m_followOffset;
+        float factor = 1f - Mathf.Exp(-Mathf.Max(0.01f, m_tailFollowSpeed) * deltaTime);
+        Vector3 nextPosition = Vector3.Lerp(movingTransform.position, targetPosition, factor);
+
+        if (useRigidBody && activeRb != null)
+        {
+            activeRb.MovePosition(nextPosition);
+        }
+        else
+        {
+            movingTransform.position = nextPosition;
+        }
+    }
+
+    private void SnapTailToTarget()
+    {
+        Transform movingTransform = ResolveFollowTransform();
+        if (m_followTarget == null || movingTransform == null)
+            return;
+
+        Rigidbody activeRb = GetActiveFollowRigidbody();
+        Vector3 targetPosition = m_followTarget.position + m_followOffset;
+        if (activeRb != null)
+        {
+            activeRb.position = targetPosition;
+            activeRb.linearVelocity = Vector3.zero;
+            activeRb.angularVelocity = Vector3.zero;
+        }
+        else
+        {
+            movingTransform.position = targetPosition;
+        }
+    }
+
+    private void SetFollowVisualPoint(Transform attachedVisualPoint)
+    {
+        m_followVisualPoint = attachedVisualPoint != null ? attachedVisualPoint : ResolveTailTransform();
+        m_followVisualRb = m_followVisualPoint != null ? m_followVisualPoint.GetComponent<Rigidbody>() : null;
+    }
+
+    private Transform ResolveFollowTransform()
+    {
+        if (m_followVisualPoint != null)
+            return m_followVisualPoint;
+
+        return ResolveTailTransform();
+    }
+
+    private Rigidbody GetActiveFollowRigidbody()
+    {
+        if (m_followVisualRb != null)
+            return m_followVisualRb;
+
+        return m_tailRb;
+    }
+
+    private Transform ResolveTailTransform()
+    {
+        if (m_tailPoint != null)
+            return m_tailPoint;
+
+        if (m_endColliders != null && m_endColliders.Length > 0 && m_endColliders[0] != null)
+            return m_endColliders[0].transform;
+
+        return null;
+    }
+
+    private void CacheTailRigidbody()
+    {
+        Transform tailTransform = ResolveTailTransform();
+        m_tailRb = tailTransform != null ? tailTransform.GetComponent<Rigidbody>() : null;
     }
 
     // Returns the closest point on the rope segment (anchor -> tail) to the specified world position
@@ -127,4 +211,3 @@ public class SwingRope : MonoBehaviour
         return Mathf.Clamp01(t);
     }
 }
-
