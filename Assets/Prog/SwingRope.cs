@@ -18,6 +18,7 @@ public class SwingRope : MonoBehaviour
     [SerializeField] private Vector3 m_followOffset = Vector3.zero;
 
     private Transform m_followTarget;
+    private Vector3 m_followTargetLocalOffset;
     private Transform m_followVisualPoint;
     private Rigidbody m_followVisualRb;
     private Rigidbody m_tailRb;
@@ -89,9 +90,15 @@ public class SwingRope : MonoBehaviour
 
     public void StartFollow(Transform target, Transform attachedVisualPoint = null)
     {
+        StartFollow(target, Vector3.zero, attachedVisualPoint);
+    }
+
+    public void StartFollow(Transform target, Vector3 targetLocalOffset, Transform attachedVisualPoint = null)
+    {
         if (target == null) return;
 
         m_followTarget = target;
+        m_followTargetLocalOffset = targetLocalOffset;
         SetFollowVisualPoint(attachedVisualPoint);
         SnapTailToTarget();
     }
@@ -99,6 +106,7 @@ public class SwingRope : MonoBehaviour
     public void StopFollow()
     {
         m_followTarget = null;
+        m_followTargetLocalOffset = Vector3.zero;
         m_followVisualPoint = null;
         m_followVisualRb = null;
     }
@@ -113,7 +121,7 @@ public class SwingRope : MonoBehaviour
             return;
 
         Rigidbody activeRb = GetActiveFollowRigidbody();
-        Vector3 targetPosition = m_followTarget.position + m_followOffset;
+        Vector3 targetPosition = GetFollowTargetPosition();
         float factor = 1f - Mathf.Exp(-Mathf.Max(0.01f, m_tailFollowSpeed) * deltaTime);
         Vector3 nextPosition = Vector3.Lerp(movingTransform.position, targetPosition, factor);
 
@@ -134,7 +142,7 @@ public class SwingRope : MonoBehaviour
             return;
 
         Rigidbody activeRb = GetActiveFollowRigidbody();
-        Vector3 targetPosition = m_followTarget.position + m_followOffset;
+        Vector3 targetPosition = GetFollowTargetPosition();
         if (activeRb != null)
         {
             activeRb.position = targetPosition;
@@ -149,7 +157,15 @@ public class SwingRope : MonoBehaviour
 
     private void SetFollowVisualPoint(Transform attachedVisualPoint)
     {
-        m_followVisualPoint = attachedVisualPoint != null ? attachedVisualPoint : ResolveTailTransform();
+        Transform candidate = attachedVisualPoint != null ? attachedVisualPoint : ResolveTailTransform();
+        if (!CanFollowTransformSafely(candidate))
+        {
+            m_followVisualPoint = null;
+            m_followVisualRb = null;
+            return;
+        }
+
+        m_followVisualPoint = candidate;
         m_followVisualRb = m_followVisualPoint != null ? m_followVisualPoint.GetComponent<Rigidbody>() : null;
     }
 
@@ -158,7 +174,8 @@ public class SwingRope : MonoBehaviour
         if (m_followVisualPoint != null)
             return m_followVisualPoint;
 
-        return ResolveTailTransform();
+        Transform tailTransform = ResolveTailTransform();
+        return CanFollowTransformSafely(tailTransform) ? tailTransform : null;
     }
 
     private Rigidbody GetActiveFollowRigidbody()
@@ -167,6 +184,23 @@ public class SwingRope : MonoBehaviour
             return m_followVisualRb;
 
         return m_tailRb;
+    }
+
+    private bool CanFollowTransformSafely(Transform candidate)
+    {
+        if (candidate == null)
+            return false;
+
+        Rigidbody rb = candidate.GetComponent<Rigidbody>();
+        return rb == null || rb.isKinematic;
+    }
+
+    private Vector3 GetFollowTargetPosition()
+    {
+        if (m_followTarget == null)
+            return Vector3.zero;
+
+        return m_followTarget.TransformPoint(m_followTargetLocalOffset) + m_followOffset;
     }
 
     private Transform ResolveTailTransform()
@@ -183,7 +217,8 @@ public class SwingRope : MonoBehaviour
     private void CacheTailRigidbody()
     {
         Transform tailTransform = ResolveTailTransform();
-        m_tailRb = tailTransform != null ? tailTransform.GetComponent<Rigidbody>() : null;
+        Rigidbody rb = tailTransform != null ? tailTransform.GetComponent<Rigidbody>() : null;
+        m_tailRb = rb != null && rb.isKinematic ? rb : null;
     }
 
     // Returns the closest point on the rope segment (anchor -> tail) to the specified world position

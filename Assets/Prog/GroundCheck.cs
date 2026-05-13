@@ -34,6 +34,12 @@ public class GroundCheck : MonoBehaviour
         return m_isHitting;
     }
 
+    public Vector3 GetRayEndWorldPosition()
+    {
+        Vector3 direction = m_direction.sqrMagnitude > 1e-6f ? m_direction.normalized : Vector3.down;
+        return transform.position + direction * m_distance;
+    }
+
     private void FixedUpdate()
     {
        DoRaycast();
