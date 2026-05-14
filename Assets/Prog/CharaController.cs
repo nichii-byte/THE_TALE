@@ -5,7 +5,6 @@ using UnityEngine.InputSystem;
 public class CharaController : MonoBehaviour, IRuntimeResettable
 {
     private const float kSwingMinDistance = 0.2f;
-    private const float kSwingTopClearance = 0.08f;
     private const float kSwingRotationSpeed = 6f;
     private const float kSwingColliderReenableDelay = 1f;
     private const float kSwingLaunchJumpFactor = 0.48f;
@@ -49,6 +48,11 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     [Header("Swing control")]
     [SerializeField] private float m_maxSwingTangentialSpeed = 12f;
+
+    [Header("Swing limits")]
+    [SerializeField] [Range(0.8f, 1.1f)] private float m_swingAnchorMinDistanceFactor = 0.97f;
+    [SerializeField] private float m_swingTopClearance = 0.08f;
+    [SerializeField] private float m_swingTopRecoverySpeed = 2.75f;
 
     [Header("Climb rope")]
     [SerializeField] private float m_climbSpeed = 2.8f;
@@ -107,6 +111,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     public float SwingChargeNormalized => m_maxCharge > 0f ? Mathf.Clamp01(m_swingCharge / m_maxCharge) : 0f;
     private Vector3 m_swingAxis = Vector3.forward;
     private Vector3 m_swingPlaneNormal = Vector3.right;
+    private float m_minSwingDistanceFromAnchor = 0f;
 
     private void Start()
     {
@@ -151,6 +156,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_swingPlaneNormal = Vector3.Cross(Vector3.up, m_swingAxis).normalized;
         if (m_swingPlaneNormal.sqrMagnitude < 1e-4f)
             m_swingPlaneNormal = Vector3.right;
+        m_minSwingDistanceFromAnchor = 0f;
 
         if (m_rb != null)
         {
@@ -636,6 +642,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
         float currentDistance = Vector3.Distance(m_attachPoint, transform.position);
         float swingDistance = Mathf.Clamp(currentDistance, kSwingMinDistance, Mathf.Max(kSwingMinDistance, m_climbOffsetFromRope));
+        float anchorDistanceAtAttach = Vector3.Distance(m_currentSwingRope.AnchorPosition, m_attachPoint);
+        float ropeBasedMinDistance = m_currentSwingRope.RopeLength * Mathf.Clamp01(m_attachParam) * m_swingAnchorMinDistanceFactor;
+        m_minSwingDistanceFromAnchor = Mathf.Max(kSwingMinDistance, anchorDistanceAtAttach, ropeBasedMinDistance);
 
         // pick the rigidbody to connect to: prefer the collider's attached rigidbody, else rope's anchor rb
         Rigidbody connectRb = null;
@@ -683,6 +692,12 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         {
             Vector3 radialDir = anchorToPlayer.normalized;
             Vector3 snappedPosition = m_attachPoint + radialDir * swingDistance;
+            bool reachedTopLimit = false;
+            Vector3 swingAxisPlanar = Vector3.ProjectOnPlane(m_swingAxis, Vector3.up).normalized;
+            if (swingAxisPlanar.sqrMagnitude < 1e-6f)
+                swingAxisPlanar = Vector3.forward;
+
+            snappedPosition = ConstrainPositionAroundRopeAnchor(snappedPosition, swingAxisPlanar, ref reachedTopLimit);
             m_rb.position = snappedPosition;
             transform.position = snappedPosition;
 
@@ -717,7 +732,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (swingAxisPlanar.sqrMagnitude < 1e-6f)
             swingAxisPlanar = Vector3.forward;
 
-        float maxVerticalDirection = -Mathf.Clamp01(kSwingTopClearance / Mathf.Max(ropeDistance, kSwingMinDistance));
+        float maxVerticalDirection = -Mathf.Clamp01(m_swingTopClearance / Mathf.Max(ropeDistance, kSwingMinDistance));
         bool reachedTopLimit = false;
         if (swingDirection.y > maxVerticalDirection)
         {
@@ -732,10 +747,15 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         }
 
         Vector3 constrainedPosition = anchorPosition + swingDirection * ropeDistance;
+        constrainedPosition = ConstrainPositionAroundRopeAnchor(constrainedPosition, swingAxisPlanar, ref reachedTopLimit);
         m_rb.MovePosition(constrainedPosition);
 
         // compute radial and tangential components of velocity
-        Vector3 dir = swingDirection;
+        Vector3 dir = constrainedPosition - anchorPosition;
+        if (dir.sqrMagnitude > 1e-6f)
+            dir.Normalize();
+        else
+            dir = swingDirection;
         Vector3 vel = Vector3.ProjectOnPlane(m_rb.linearVelocity, m_swingPlaneNormal);
         Vector3 tangentialVel = vel - dir * Vector3.Dot(vel, dir);
         tangentialVel = Vector3.ClampMagnitude(tangentialVel, Mathf.Max(m_runSpeed, m_maxSwingTangentialSpeed));
@@ -743,6 +763,13 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (reachedTopLimit && Vector3.Dot(tangentialVel, Vector3.up) > 0f)
         {
             tangentialVel = Vector3.ProjectOnPlane(tangentialVel, Vector3.up);
+            tangentialVel = Vector3.ProjectOnPlane(tangentialVel, m_swingPlaneNormal);
+        }
+
+        if (reachedTopLimit)
+        {
+            tangentialVel += Vector3.down * m_swingTopRecoverySpeed;
+            tangentialVel = Vector3.ProjectOnPlane(tangentialVel, dir);
             tangentialVel = Vector3.ProjectOnPlane(tangentialVel, m_swingPlaneNormal);
         }
 
@@ -800,6 +827,46 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             return m_swingJoint.connectedBody.transform.TransformPoint(m_swingJoint.connectedAnchor);
 
         return m_swingJoint.connectedAnchor;
+    }
+
+    private Vector3 ConstrainPositionAroundRopeAnchor(Vector3 candidatePosition, Vector3 swingAxisPlanar, ref bool reachedTopLimit)
+    {
+        if (m_currentSwingRope == null)
+            return candidatePosition;
+
+        Vector3 ropeAnchorPosition = m_currentSwingRope.AnchorPosition;
+        Vector3 ropeAnchorToPlayer = candidatePosition - ropeAnchorPosition;
+        if (ropeAnchorToPlayer.sqrMagnitude < 1e-6f)
+            ropeAnchorToPlayer = Vector3.down;
+
+        float anchorDistance = ropeAnchorToPlayer.magnitude;
+        float minimumDistance = Mathf.Max(kSwingMinDistance, m_minSwingDistanceFromAnchor);
+        if (anchorDistance < minimumDistance)
+        {
+            ropeAnchorToPlayer = ropeAnchorToPlayer.normalized * minimumDistance;
+            candidatePosition = ropeAnchorPosition + ropeAnchorToPlayer;
+            anchorDistance = minimumDistance;
+            reachedTopLimit = true;
+        }
+
+        float maxVerticalDirection = -Mathf.Clamp01(m_swingTopClearance / Mathf.Max(anchorDistance, kSwingMinDistance));
+        Vector3 anchorDirection = ropeAnchorToPlayer.normalized;
+        if (anchorDirection.y > maxVerticalDirection)
+        {
+            if (swingAxisPlanar.sqrMagnitude < 1e-6f)
+                swingAxisPlanar = Vector3.forward;
+
+            float horizontalSign = Mathf.Sign(Vector3.Dot(anchorDirection, swingAxisPlanar));
+            if (Mathf.Approximately(horizontalSign, 0f))
+                horizontalSign = 1f;
+
+            float horizontalMagnitude = Mathf.Sqrt(Mathf.Max(0f, 1f - maxVerticalDirection * maxVerticalDirection));
+            anchorDirection = (swingAxisPlanar * horizontalSign * horizontalMagnitude) + (Vector3.up * maxVerticalDirection);
+            candidatePosition = ropeAnchorPosition + anchorDirection.normalized * anchorDistance;
+            reachedTopLimit = true;
+        }
+
+        return candidatePosition;
     }
 
     private Vector3 ComputeSwingLaunchVelocity(Vector3 releaseVelocity, Vector3 anchorPosition)
@@ -912,6 +979,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_currentSwingRope = null;
         m_currentRopeCollider = null;
         m_swingCharge = 0f;
+        m_minSwingDistanceFromAnchor = 0f;
     }
 
     private IEnumerator ReenableEndCollidersCoroutine(SwingRope rope)
