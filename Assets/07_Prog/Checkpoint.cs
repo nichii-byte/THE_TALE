@@ -4,6 +4,7 @@ public class Checkpoint : MonoBehaviour
 {
     [SerializeField] private Transform m_spawnPoint;
     [SerializeField] private bool m_setAsInitialCheckpoint;
+    [SerializeField] private bool m_isLevelEnd;
 
     public Vector3 SpawnPosition => (m_spawnPoint != null ? m_spawnPoint : transform).position;
     public Quaternion SpawnRotation => (m_spawnPoint != null ? m_spawnPoint : transform).rotation;
@@ -25,6 +26,10 @@ public class Checkpoint : MonoBehaviour
         if (CheckpointManager.Instance != null)
         {
             CheckpointManager.Instance.RegisterCheckpoint(this);
+            if (m_isLevelEnd)
+            {
+                CheckpointManager.Instance.CompleteLevel();
+            }
         }
     }
 }

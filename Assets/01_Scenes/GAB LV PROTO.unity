@@ -4088,6 +4088,7 @@ GameObject:
   - component: {fileID: 206569910}
   - component: {fileID: 206569909}
   - component: {fileID: 206569908}
+  - component: {fileID: 206569911}
   m_Layer: 0
   m_Name: Canvas_Fullscreen
   m_TagString: Untagged
@@ -4182,6 +4183,27 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!114 &206569911
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 206569906}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff3422473a188394684dd85ddad08ff5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_mainMenuScreen: {fileID: 1510765273}
+  m_playButton: {fileID: 1711967222}
+  m_levelNameScreen: {fileID: 1840313113}
+  m_levelNameText: {fileID: 1279478327}
+  m_deathScreen: {fileID: 737367249}
+  m_deathCountText: {fileID: 816925355}
+  m_endScreen: {fileID: 591413846}
+  m_levelDisplayName: THE TALE
+  m_levelNameDuration: 3
 --- !u!1 &206638176 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -9024649955146893172, guid: ee0aa7054e303cd47ac67f7ad364d638, type: 3}
@@ -25724,6 +25746,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_spawnPoint: {fileID: 1242224584}
   m_setAsInitialCheckpoint: 0
+  m_isLevelEnd: 1
 --- !u!1 &1243601525
 GameObject:
   m_ObjectHideFlags: 0
@@ -36215,7 +36238,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_followTarget: {fileID: 1519733534}
-  m_cameraInput: {fileID: 0}
+  m_cameraInput: {fileID: 723801757}
   m_followOffset: {x: 0, y: 1.5, z: 0}
   m_pitchMin: -30
   m_pitchMax: 55
@@ -36302,19 +36325,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1711967223}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 11500000, guid: ff3422473a188394684dd85ddad08ff5, type: 3}
-        m_TargetAssemblyTypeName: UnityEngine.Object, UnityEngine
-        m_MethodName: set_name
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: .OnPlayPressed()
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &1711967223
 MonoBehaviour:
   m_ObjectHideFlags: 0

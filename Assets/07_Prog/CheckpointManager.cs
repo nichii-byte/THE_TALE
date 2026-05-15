@@ -18,6 +18,7 @@ public class CheckpointManager : MonoBehaviour
     private Quaternion m_currentSpawnRotation = Quaternion.identity;
     private bool m_hasSpawnPoint;
     private bool m_isRespawning;
+    private bool m_isLevelCompleted;
 
     public static CheckpointManager Instance => s_instance;
 
@@ -33,6 +34,7 @@ public class CheckpointManager : MonoBehaviour
         s_instance = this;
         ResolvePlayerReference();
         CacheInitialSpawn();
+        EnsureDeathTrackerExists();
     }
 
     private void Start()
@@ -50,7 +52,7 @@ public class CheckpointManager : MonoBehaviour
 
     private void Update()
     {
-        if (!m_watchVoidY || m_isRespawning)
+        if (!m_watchVoidY || m_isRespawning || m_isLevelCompleted)
             return;
 
         ResolvePlayerReference();
@@ -72,7 +74,7 @@ public class CheckpointManager : MonoBehaviour
 
     public void KillPlayer(string deathReason = "Hazard")
     {
-        if (m_isRespawning)
+        if (m_isRespawning || m_isLevelCompleted)
             return;
 
         // Report death to tracker / UI
@@ -92,6 +94,8 @@ public class CheckpointManager : MonoBehaviour
     public void ResetSessionState()
     {
         ResolvePlayerReference();
+        m_isRespawning = false;
+        m_isLevelCompleted = false;
         ApplyInitialCheckpointOverride();
         CacheInitialSpawn();
         ResetRuntimeObjects();
@@ -105,7 +109,18 @@ public class CheckpointManager : MonoBehaviour
     // Public method to be called by UI when the player presses Play
     public void BeginSession()
     {
+        EnsureDeathTrackerExists();
+        DeathTracker.Instance?.ResetCounts();
         ResetSessionState();
+    }
+
+    public void CompleteLevel()
+    {
+        if (m_isRespawning || m_isLevelCompleted)
+            return;
+
+        m_isLevelCompleted = true;
+        GameUIManager.Instance?.OnLevelCompleted();
     }
 
     private IEnumerator RespawnRoutine()
@@ -174,5 +189,14 @@ public class CheckpointManager : MonoBehaviour
                 resettable.ResetRuntimeState();
             }
         }
+    }
+
+    private void EnsureDeathTrackerExists()
+    {
+        if (DeathTracker.Instance != null)
+            return;
+
+        GameObject trackerObject = new GameObject("DeathTracker");
+        trackerObject.AddComponent<DeathTracker>();
     }
 }

@@ -23,6 +23,12 @@ public class CameraInput : MonoBehaviour
 
     private void Update()
     {
+        if (GameUIManager.Instance != null && !GameUIManager.Instance.CanProcessGameplayInput)
+        {
+            look = Vector2.zero;
+            return;
+        }
+
         if (lookInput == null)
         {
             look = Vector2.zero;

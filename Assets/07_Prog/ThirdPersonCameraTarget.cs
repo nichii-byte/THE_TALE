@@ -14,6 +14,11 @@ public class ThirdPersonCameraTarget : MonoBehaviour
 
     private void Awake()
     {
+        if (m_cameraInput == null)
+        {
+            m_cameraInput = FindFirstObjectByType<CameraInput>();
+        }
+
         Vector3 eulerAngles = transform.rotation.eulerAngles;
         m_yaw = eulerAngles.y;
         m_pitch = NormalizeAngle(eulerAngles.x);
