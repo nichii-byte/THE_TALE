@@ -1,5 +1,18 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-5525875739989012771
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Editor::UnityEditor.Rendering.Universal.AssetVersion
+  version: 10
 --- !u!21 &2100000
 Material:
   serializedVersion: 8
@@ -7,8 +20,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_Fog
-  m_Shader: {fileID: -6465566751694194690, guid: 34e0dc38b825d43778504c73f9ec1ce1, type: 3}
+  m_Name: M_SpotLight
+  m_Shader: {fileID: -6465566751694194690, guid: fd9336419233ea5419a2efdbda2d58a0, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -18,7 +31,8 @@ Material:
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
-  disabledShaderPasses: []
+  disabledShaderPasses:
+  - MOTIONVECTORS
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -37,10 +51,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _FogEndDistance: 40
-    - _FogIntensity: 1
-    - _FogStartDistance: 5
+    - _FadeDistance: 22.6
+    - _QueueControl: 0
+    - _QueueOffset: 0
     m_Colors:
-    - _FogColor: {r: 0.104574576, g: 0.4716981, b: 0.28780374, a: 0.78431374}
+    - _Color: {r: 1.0917695, g: 0.6678879, b: 0.10814697, a: 0.2784314}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
