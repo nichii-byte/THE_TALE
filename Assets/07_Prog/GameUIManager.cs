@@ -19,10 +19,12 @@ public class GameUIManager : MonoBehaviour
     [SerializeField] private GameObject m_endScreen;
 
     [Header("Level flow")]
-    [SerializeField] private string m_levelDisplayName = "THE TALE";
+    [SerializeField] private string m_levelDisplayName = "LA VILLE";
     [SerializeField] private float m_levelNameDuration = 3f;
+    [SerializeField] private float m_deathCountDisplayDuration = 2f;
 
     private Coroutine m_levelNameRoutine;
+    private Coroutine m_deathScreenRoutine;
 
     public bool CanProcessGameplayInput { get; private set; }
 
@@ -50,6 +52,7 @@ public class GameUIManager : MonoBehaviour
     public void ShowMainMenu()
     {
         StopLevelNameRoutine();
+        StopDeathScreenRoutine();
 
         CanProcessGameplayInput = false;
         Time.timeScale = 0f;
@@ -66,6 +69,7 @@ public class GameUIManager : MonoBehaviour
         if (m_levelNameRoutine != null)
             return;
 
+        StopDeathScreenRoutine();
         CanProcessGameplayInput = false;
         if (m_mainMenuScreen != null) m_mainMenuScreen.SetActive(false);
         if (m_deathScreen != null) m_deathScreen.SetActive(false);
@@ -84,13 +88,13 @@ public class GameUIManager : MonoBehaviour
         if (m_endScreen != null && m_endScreen.activeSelf)
             return;
 
-        if (m_deathScreen != null)
-            m_deathScreen.SetActive(true);
+        ShowDeathCountTemporarily();
     }
 
     public void OnLevelCompleted()
     {
         StopLevelNameRoutine();
+        StopDeathScreenRoutine();
 
         CanProcessGameplayInput = false;
         Time.timeScale = 0f;
@@ -114,7 +118,7 @@ public class GameUIManager : MonoBehaviour
         yield return new WaitForSecondsRealtime(Mathf.Max(0f, m_levelNameDuration));
 
         if (m_levelNameScreen != null) m_levelNameScreen.SetActive(false);
-        if (m_deathScreen != null) m_deathScreen.SetActive(true);
+        if (m_deathScreen != null) m_deathScreen.SetActive(false);
 
         CanProcessGameplayInput = true;
         Time.timeScale = 1f;
@@ -128,7 +132,7 @@ public class GameUIManager : MonoBehaviour
             return;
 
         int totalDeaths = DeathTracker.Instance != null ? DeathTracker.Instance.TotalDeaths : 0;
-        m_deathCountText.text = "Deaths: " + totalDeaths;
+        m_deathCountText.text = "Morts: " + totalDeaths;
     }
 
     private void StopLevelNameRoutine()
@@ -138,6 +142,35 @@ public class GameUIManager : MonoBehaviour
 
         StopCoroutine(m_levelNameRoutine);
         m_levelNameRoutine = null;
+    }
+
+    private void ShowDeathCountTemporarily()
+    {
+        if (m_deathScreen == null)
+            return;
+
+        StopDeathScreenRoutine();
+        m_deathScreen.SetActive(true);
+        m_deathScreenRoutine = StartCoroutine(HideDeathScreenAfterDelay());
+    }
+
+    private IEnumerator HideDeathScreenAfterDelay()
+    {
+        yield return new WaitForSecondsRealtime(Mathf.Max(0f, m_deathCountDisplayDuration));
+
+        if (m_deathScreen != null)
+            m_deathScreen.SetActive(false);
+
+        m_deathScreenRoutine = null;
+    }
+
+    private void StopDeathScreenRoutine()
+    {
+        if (m_deathScreenRoutine == null)
+            return;
+
+        StopCoroutine(m_deathScreenRoutine);
+        m_deathScreenRoutine = null;
     }
 
     private static void SetCursorState(bool gameplayActive)
