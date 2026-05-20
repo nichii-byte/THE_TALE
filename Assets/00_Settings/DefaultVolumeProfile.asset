@@ -217,7 +217,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5ea09000a1326e140b3df91654947610, type: 3}
   m_Name: Pixelation
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   widthPixelation:
     m_OverrideState: 1
     m_Value: 512
