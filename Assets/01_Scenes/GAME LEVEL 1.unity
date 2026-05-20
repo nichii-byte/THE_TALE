@@ -29449,6 +29449,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.y
       value: -0.72
       objectReference: {fileID: 0}
+    - target: {fileID: 2054889368630595415, guid: 10914d69bf15d4ba48b663cb4d93f5e0, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.205
+      objectReference: {fileID: 0}
     - target: {fileID: 2230279471155623681, guid: 10914d69bf15d4ba48b663cb4d93f5e0, type: 3}
       propertyPath: m_LocalPosition.y
       value: -1.91
@@ -29555,7 +29559,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5751193235542927393, guid: 10914d69bf15d4ba48b663cb4d93f5e0, type: 3}
       propertyPath: m_swingForce
-      value: 15
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 5751193235542927393, guid: 10914d69bf15d4ba48b663cb4d93f5e0, type: 3}
       propertyPath: m_chargeDecay
