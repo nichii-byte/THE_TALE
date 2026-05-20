@@ -108,6 +108,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     // swing runtime
     private float m_swingCharge = 0f; // 0..maxCharge
+    public bool IsSwinging => m_isSwinging;
     public float SwingChargeNormalized => m_maxCharge > 0f ? Mathf.Clamp01(m_swingCharge / m_maxCharge) : 0f;
     private Vector3 m_swingAxis = Vector3.forward;
     private Vector3 m_swingPlaneNormal = Vector3.right;
