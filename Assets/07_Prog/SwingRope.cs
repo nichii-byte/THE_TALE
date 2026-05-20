@@ -20,6 +20,16 @@ public class SwingRope : MonoBehaviour
     [Tooltip("Decalage applique entre le joueur et l'extremite visuelle de la corde pendant le swing.")]
     [SerializeField] private Vector3 m_followOffset = Vector3.zero;
 
+    [Header("Auto stabilize")]
+    [Tooltip("Temps mis par la corde pour ralentir et revenir au repos apres le detach.")]
+    [SerializeField] private float m_autoStabilizeDuration = 1.5f;
+    [Tooltip("Vitesse a laquelle la chaine revient vers sa pose de repos.")]
+    [SerializeField] private float m_autoStabilizePositionSpeed = 6f;
+    [Tooltip("Freinage applique a la vitesse lineaire pendant le retour au repos.")]
+    [SerializeField] private float m_autoStabilizeLinearDamping = 7f;
+    [Tooltip("Freinage applique a la vitesse angulaire pendant le retour au repos.")]
+    [SerializeField] private float m_autoStabilizeAngularDamping = 10f;
+
     private Transform m_followTarget;
     private Transform m_followVisualPoint;
     private Rigidbody m_followVisualRb;
@@ -27,6 +37,7 @@ public class SwingRope : MonoBehaviour
     private readonly List<Rigidbody> m_orderedChainBodies = new List<Rigidbody>();
     private readonly List<Vector3> m_ropePathPoints = new List<Vector3>();
     private bool m_chainCacheDirty = true;
+    private float m_autoStabilizeTimer;
 
     public Vector3 AnchorPosition => m_anchorPoint != null ? m_anchorPoint.position : transform.position;
 
@@ -84,7 +95,7 @@ public class SwingRope : MonoBehaviour
 
     private void Update()
     {
-        if (GetActiveFollowRigidbody() == null)
+        if (m_followTarget != null && GetActiveFollowRigidbody() == null)
         {
             UpdateTailFollow(Time.deltaTime, false);
         }
@@ -92,9 +103,19 @@ public class SwingRope : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (GetActiveFollowRigidbody() != null)
+        if (m_followTarget != null)
         {
-            UpdateTailFollow(Time.fixedDeltaTime, true);
+            if (GetActiveFollowRigidbody() != null)
+            {
+                UpdateTailFollow(Time.fixedDeltaTime, true);
+            }
+
+            return;
+        }
+
+        if (m_autoStabilizeTimer > 0f)
+        {
+            UpdateAutoStabilize(Time.fixedDeltaTime);
         }
     }
 
@@ -112,6 +133,7 @@ public class SwingRope : MonoBehaviour
     {
         if (target == null) return;
 
+        m_autoStabilizeTimer = 0f;
         m_followTarget = target;
         SetFollowVisualPoint(attachedVisualPoint);
         SnapTailToTarget();
@@ -122,6 +144,7 @@ public class SwingRope : MonoBehaviour
         m_followTarget = null;
         m_followVisualPoint = null;
         m_followVisualRb = null;
+        m_autoStabilizeTimer = Mathf.Max(0f, m_autoStabilizeDuration);
     }
 
     private void UpdateTailFollow(float deltaTime, bool useRigidBody)
@@ -205,6 +228,134 @@ public class SwingRope : MonoBehaviour
     {
         Transform tailTransform = ResolveTailTransform();
         m_tailRb = tailTransform != null ? tailTransform.GetComponent<Rigidbody>() : null;
+    }
+
+    private void UpdateAutoStabilize(float deltaTime)
+    {
+        if (deltaTime <= 0f)
+            return;
+
+        EnsureChainCache();
+
+        float positionBlend = 1f - Mathf.Exp(-Mathf.Max(0.01f, m_autoStabilizePositionSpeed) * deltaTime);
+        float linearBlend = 1f - Mathf.Exp(-Mathf.Max(0.01f, m_autoStabilizeLinearDamping) * deltaTime);
+        float angularBlend = 1f - Mathf.Exp(-Mathf.Max(0.01f, m_autoStabilizeAngularDamping) * deltaTime);
+
+        Vector3 anchor = AnchorPosition;
+        Vector3 previousPoint = anchor;
+        float distanceFromAnchor = 0f;
+
+        for (int i = 0; i < m_orderedChainBodies.Count; i++)
+        {
+            Rigidbody body = m_orderedChainBodies[i];
+            if (body == null)
+                continue;
+
+            Vector3 currentPosition = body.position;
+            distanceFromAnchor += Vector3.Distance(previousPoint, currentPosition);
+            previousPoint = currentPosition;
+
+            if (body == AnchorRb || body.isKinematic)
+                continue;
+
+            Vector3 restPosition = anchor + Vector3.down * distanceFromAnchor;
+            ApplyAutoStabilizeToBody(body, restPosition, positionBlend, linearBlend, angularBlend);
+        }
+
+        Transform tailTransform = ResolveTailTransform();
+        if (tailTransform != null)
+        {
+            Vector3 tailCurrentPosition = m_tailRb != null ? m_tailRb.position : tailTransform.position;
+            distanceFromAnchor += Vector3.Distance(previousPoint, tailCurrentPosition);
+            Vector3 tailRestPosition = anchor + Vector3.down * distanceFromAnchor;
+
+            if (m_tailRb != null && !IsTrackedDynamicBody(m_tailRb))
+            {
+                ApplyAutoStabilizeToBody(m_tailRb, tailRestPosition, positionBlend, linearBlend, angularBlend);
+            }
+            else if (m_tailRb == null)
+            {
+                tailTransform.position = Vector3.Lerp(tailTransform.position, tailRestPosition, positionBlend);
+            }
+        }
+
+        m_autoStabilizeTimer -= deltaTime;
+        if (m_autoStabilizeTimer <= 0f)
+        {
+            SnapChainToRest();
+            m_autoStabilizeTimer = 0f;
+        }
+    }
+
+    private void ApplyAutoStabilizeToBody(Rigidbody body, Vector3 targetPosition, float positionBlend, float linearBlend, float angularBlend)
+    {
+        if (body == null || body.isKinematic)
+            return;
+
+        body.linearVelocity = Vector3.Lerp(body.linearVelocity, Vector3.zero, linearBlend);
+        body.angularVelocity = Vector3.Lerp(body.angularVelocity, Vector3.zero, angularBlend);
+        body.MovePosition(Vector3.Lerp(body.position, targetPosition, positionBlend));
+    }
+
+    private void SnapChainToRest()
+    {
+        EnsureChainCache();
+
+        Vector3 anchor = AnchorPosition;
+        Vector3 previousPoint = anchor;
+        float distanceFromAnchor = 0f;
+
+        for (int i = 0; i < m_orderedChainBodies.Count; i++)
+        {
+            Rigidbody body = m_orderedChainBodies[i];
+            if (body == null)
+                continue;
+
+            Vector3 currentPosition = body.position;
+            distanceFromAnchor += Vector3.Distance(previousPoint, currentPosition);
+            previousPoint = currentPosition;
+
+            if (body == AnchorRb || body.isKinematic)
+                continue;
+
+            Vector3 restPosition = anchor + Vector3.down * distanceFromAnchor;
+            body.position = restPosition;
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+
+        Transform tailTransform = ResolveTailTransform();
+        if (tailTransform == null)
+            return;
+
+        Vector3 tailCurrentPosition = m_tailRb != null ? m_tailRb.position : tailTransform.position;
+        distanceFromAnchor += Vector3.Distance(previousPoint, tailCurrentPosition);
+        Vector3 tailRestPosition = anchor + Vector3.down * distanceFromAnchor;
+
+        if (m_tailRb != null && !IsTrackedDynamicBody(m_tailRb))
+        {
+            m_tailRb.position = tailRestPosition;
+            m_tailRb.linearVelocity = Vector3.zero;
+            m_tailRb.angularVelocity = Vector3.zero;
+        }
+        else if (m_tailRb == null)
+        {
+            tailTransform.position = tailRestPosition;
+        }
+    }
+
+    private bool IsTrackedDynamicBody(Rigidbody body)
+    {
+        if (body == null)
+            return false;
+
+        for (int i = 0; i < m_orderedChainBodies.Count; i++)
+        {
+            if (m_orderedChainBodies[i] == body)
+                return true;
+        }
+
+        return false;
     }
 
     // Returns the closest point on the rope segment (anchor -> tail) to the specified world position
