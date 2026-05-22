@@ -166,7 +166,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 1.591, z: 0}
-  m_LocalScale: {x: 1.1928701, y: 1.5663272, z: 4.4532}
+  m_LocalScale: {x: 1.85, y: 1.5663272, z: 4.4532}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4470311029471003483}
@@ -317,8 +317,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8776739788758772171}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 3.91, y: 1.33, z: -39.07}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 3.630855, y: 2.0035458, z: 0.6631484}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -352,7 +352,7 @@ MonoBehaviour:
   m_damageCollider: {fileID: 7621668278548869584}
   m_extendedLocalOffset: {x: 0, y: 1, z: 0}
   m_extendDuration: 0.1
-  m_holdDuration: 0.8
+  m_holdDuration: Infinity
   m_retractDuration: 0.22
   m_retriggerCooldown: 0.1
   m_timerInterval: 2

@@ -13,6 +13,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     [Header("Mode")]
     [SerializeField] private ActivationMode m_activationMode = ActivationMode.TriggerZone;
     [SerializeField] private bool m_restartSequenceWhenTriggeredAgain = true;
+    [SerializeField] private bool m_triggerOnEnable = false;
 
     [Header("References")]
     [SerializeField] private Transform m_handRoot;
@@ -34,6 +35,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     [Header("Timer")]
     [SerializeField] private float m_timerInterval = 2f;
     [SerializeField] private float m_initialTimerDelay = 0f;
+    [SerializeField] private float m_triggerDelay = 0f;
 
     private Vector3 m_defaultRetractedLocalPosition;
     private Transform[] m_resolvedMovingRoots;
@@ -61,6 +63,9 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     private void OnEnable()
     {
         ResetRuntimeState();
+
+        if (m_triggerOnEnable)
+            TriggerTrap();
     }
 
     private void OnDisable()
@@ -269,6 +274,9 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
 
         Vector3 retractedPosition = GetRetractedLocalPosition();
         Vector3 extendedPosition = GetExtendedLocalPosition();
+
+        if (m_triggerDelay > 0f)
+            yield return new WaitForSeconds(m_triggerDelay);
 
         SetDamageState(false);
         SetHandLocalPosition(retractedPosition);
