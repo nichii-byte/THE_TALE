@@ -38,9 +38,12 @@ Material:
     m_Ints: []
     m_Floats:
     - _FogEndDistance: 40
-    - _FogIntensity: 1
+    - _FogIntensity: 0.86
     - _FogStartDistance: 5
+    - _SkyFadeAlpha: 1
+    - _SkyFadeOffset: -87.22
+    - _SkyFadePower: 2.02
     m_Colors:
-    - _FogColor: {r: 0.104574576, g: 0.4716981, b: 0.28780374, a: 0.78431374}
+    - _FogColor: {r: 0.1267355, g: 0.3018868, b: 0.21431114, a: 0.78431374}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

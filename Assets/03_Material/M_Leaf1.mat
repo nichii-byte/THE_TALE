@@ -51,11 +51,11 @@ Material:
     - _Cull: 0
     - _DstBlend: 0
     - _DstBlendAlpha: 0
-    - _Luminosity: 3.66
+    - _Luminosity: 15.23
     - _QueueControl: 0
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _Smoothness: 0
+    - _Smoothness: 0.307
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _Surface: 0
@@ -64,7 +64,7 @@ Material:
     - _ZWrite: 1
     - _ZWriteControl: 0
     m_Colors:
-    - _ColorTint: {r: 0.76517445, g: 0.8962264, b: 0.77973574, a: 1}
+    - _ColorTint: {r: 0.504717, g: 1, b: 0.56298566, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &5840209655058179542
