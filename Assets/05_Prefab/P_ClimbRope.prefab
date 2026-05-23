@@ -258,7 +258,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_topPoint: {fileID: 5666543414904768801}
   m_bottomPoint: {fileID: 3746722188802945577}
-  m_ropeLength: 4
+  m_ropeLength: 9
   m_defaultSideDirection: {x: 0, y: 0, z: 1}
 --- !u!1 &8694599837931233322
 GameObject:
