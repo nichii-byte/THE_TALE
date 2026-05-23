@@ -21,6 +21,7 @@ public class CheckpointManager : MonoBehaviour
     private bool m_isLevelCompleted;
 
     public static CheckpointManager Instance => s_instance;
+    public bool IsRespawning => m_isRespawning;
 
     private void Awake()
     {

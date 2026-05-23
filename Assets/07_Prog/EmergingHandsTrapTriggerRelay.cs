@@ -23,4 +23,22 @@ public class EmergingHandsTrapTriggerRelay : MonoBehaviour
         if (m_owner != null)
             m_owner.TryTriggerFromCollider(other);
     }
+
+    private void OnTriggerStay(Collider other)
+    {
+        if (m_owner == null)
+            m_owner = GetComponentInParent<EmergingHandsTrap>();
+
+        if (m_owner != null)
+            m_owner.TryTriggerStayFromCollider(other);
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (m_owner == null)
+            m_owner = GetComponentInParent<EmergingHandsTrap>();
+
+        if (m_owner != null)
+            m_owner.TryReleaseFromCollider(other);
+    }
 }
