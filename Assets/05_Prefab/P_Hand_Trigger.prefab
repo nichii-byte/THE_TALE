@@ -343,6 +343,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_activationMode: 0
   m_restartSequenceWhenTriggeredAgain: 1
+  m_triggerOnEnable: 0
   m_handRoot: {fileID: 4088855730508801247}
   m_additionalMovingRoots:
   - {fileID: 7597686678969159418}
@@ -351,9 +352,10 @@ MonoBehaviour:
   m_activationTrigger: {fileID: 4416706114812380184}
   m_damageCollider: {fileID: 7621668278548869584}
   m_extendedLocalOffset: {x: 0, y: 1, z: 0}
-  m_extendDuration: 0.1
+  m_extendDuration: 0.18
   m_holdDuration: Infinity
   m_retractDuration: 0.22
   m_retriggerCooldown: 0.1
   m_timerInterval: 2
   m_initialTimerDelay: 0
+  m_triggerDelay: 0

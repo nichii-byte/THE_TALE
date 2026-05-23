@@ -343,6 +343,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_activationMode: 1
   m_restartSequenceWhenTriggeredAgain: 1
+  m_triggerOnEnable: 0
   m_handRoot: {fileID: 4088855730508801247}
   m_additionalMovingRoots:
   - {fileID: 7597686678969159418}
@@ -357,3 +358,4 @@ MonoBehaviour:
   m_retriggerCooldown: 0.1
   m_timerInterval: 2
   m_initialTimerDelay: 0
+  m_triggerDelay: 0

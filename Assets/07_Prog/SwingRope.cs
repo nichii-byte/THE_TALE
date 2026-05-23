@@ -112,6 +112,19 @@ public class SwingRope : MonoBehaviour
         }
     }
 
+    private void LateUpdate()
+    {
+        if (m_followTarget == null || !m_snapVisualExactlyWhileFollowing)
+            return;
+
+        UpdateTailFollow(Time.deltaTime, GetActiveFollowRigidbody() != null);
+
+        if (m_keepRopeTautWhileFollowing)
+        {
+            UpdateTautVisualChain();
+        }
+    }
+
     private void FixedUpdate()
     {
         if (m_followTarget != null)
@@ -183,9 +196,7 @@ public class SwingRope : MonoBehaviour
         {
             if (useRigidBody && activeRb != null)
             {
-                activeRb.linearVelocity = Vector3.zero;
-                activeRb.angularVelocity = Vector3.zero;
-                activeRb.MovePosition(targetPosition);
+                SnapRigidbodyToPosition(activeRb, targetPosition);
             }
             else
             {
@@ -218,14 +229,23 @@ public class SwingRope : MonoBehaviour
         Vector3 targetPosition = ResolveFollowTargetPosition();
         if (activeRb != null)
         {
-            activeRb.position = targetPosition;
-            activeRb.linearVelocity = Vector3.zero;
-            activeRb.angularVelocity = Vector3.zero;
+            SnapRigidbodyToPosition(activeRb, targetPosition);
         }
         else
         {
             movingTransform.position = targetPosition;
         }
+    }
+
+    private void SnapRigidbodyToPosition(Rigidbody body, Vector3 targetPosition)
+    {
+        if (body == null)
+            return;
+
+        body.position = targetPosition;
+        body.transform.position = targetPosition;
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
     }
 
     private void SetFollowVisualPoint(Transform attachedVisualPoint)
@@ -311,7 +331,7 @@ public class SwingRope : MonoBehaviour
             Transform followTransform = ResolveFollowTransform();
             Vector3 referencePosition = followTransform != null ? followTransform.position : m_preferredFollowTarget.position;
 
-            if (m_preferredFollowCollider != null && m_preferredFollowCollider.enabled)
+            if (m_preferredFollowCollider != null && m_preferredFollowCollider.enabled && !m_preferredFollowCollider.isTrigger)
                 return m_preferredFollowCollider.ClosestPoint(referencePosition) + m_followOffset;
 
             return m_preferredFollowTarget.position + m_followOffset;
@@ -378,16 +398,31 @@ public class SwingRope : MonoBehaviour
 
             float t = (i + 1f) / totalStepCount;
             Vector3 targetPosition = Vector3.Lerp(anchorPosition, tailTargetPosition, t);
-            body.linearVelocity = Vector3.zero;
-            body.angularVelocity = Vector3.zero;
-            body.MovePosition(targetPosition);
+            if (m_snapVisualExactlyWhileFollowing)
+            {
+                SnapRigidbodyToPosition(body, targetPosition);
+            }
+            else
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+                body.MovePosition(targetPosition);
+            }
         }
 
         if (tailIsSeparateBody)
         {
-            m_tailRb.linearVelocity = Vector3.zero;
-            m_tailRb.angularVelocity = Vector3.zero;
-            m_tailRb.MovePosition(tailTargetPosition);
+            if (m_snapVisualExactlyWhileFollowing)
+            {
+                SnapRigidbodyToPosition(m_tailRb, tailTargetPosition);
+            }
+            else
+            {
+                m_tailRb.linearVelocity = Vector3.zero;
+                m_tailRb.angularVelocity = Vector3.zero;
+                m_tailRb.MovePosition(tailTargetPosition);
+            }
+
             return;
         }
 

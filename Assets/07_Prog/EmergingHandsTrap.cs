@@ -43,6 +43,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     private Coroutine m_sequenceRoutine;
     private Coroutine m_timerRoutine;
     private float m_lastTriggerTime = float.NegativeInfinity;
+    private readonly HashSet<Collider> m_playerActivationColliders = new HashSet<Collider>();
 
     private void Awake()
     {
@@ -78,12 +79,24 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         TryTriggerFromCollider(other);
     }
 
+    private void OnTriggerStay(Collider other)
+    {
+        TryTriggerStayFromCollider(other);
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        TryReleaseFromCollider(other);
+    }
+
     public void ResetRuntimeState()
     {
         StopRuntimeCoroutines();
         m_lastTriggerTime = float.NegativeInfinity;
+        m_playerActivationColliders.Clear();
 
         ApplyActivationTriggerState();
+        RefreshActivationTriggerState();
         SetDamageState(false);
         SetHandLocalPosition(GetRetractedLocalPosition());
 
@@ -118,10 +131,42 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         if (m_activationMode != ActivationMode.TriggerZone)
             return;
 
-        if (other == null || other.GetComponentInParent<CharaController>() == null)
+        if (CheckpointManager.Instance != null && CheckpointManager.Instance.IsRespawning)
+            return;
+
+        if (!IsPlayerCollider(other))
+            return;
+
+        bool wasEmpty = m_playerActivationColliders.Count == 0;
+        m_playerActivationColliders.Add(other);
+        if (!wasEmpty)
             return;
 
         TriggerTrap();
+    }
+
+    public void TryTriggerStayFromCollider(Collider other)
+    {
+        if (!IsPlayerCollider(other) || m_playerActivationColliders.Contains(other))
+            return;
+
+        TryTriggerFromCollider(other);
+    }
+
+    public void TryReleaseFromCollider(Collider other)
+    {
+        if (m_activationMode != ActivationMode.TriggerZone)
+            return;
+
+        if (!IsPlayerCollider(other))
+            return;
+
+        m_playerActivationColliders.Remove(other);
+    }
+
+    private bool IsPlayerCollider(Collider other)
+    {
+        return other != null && other.GetComponentInParent<CharaController>() != null;
     }
 
     private void StopRuntimeCoroutines()
@@ -143,6 +188,16 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     {
         if (m_activationTrigger != null)
             m_activationTrigger.enabled = m_activationMode == ActivationMode.TriggerZone;
+    }
+
+    private void RefreshActivationTriggerState()
+    {
+        if (m_activationMode != ActivationMode.TriggerZone || m_activationTrigger == null || !m_activationTrigger.gameObject.activeInHierarchy)
+            return;
+
+        m_activationTrigger.enabled = false;
+        m_activationTrigger.enabled = true;
+        Physics.SyncTransforms();
     }
 
     private void EnsureTriggerRelay()
