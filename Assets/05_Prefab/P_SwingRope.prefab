@@ -990,7 +990,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_anchorPoint: {fileID: 262380155366880799}
   anchorRb: {fileID: 537179091214743211}
-  m_ropeLength: 9
+  m_ropeLength: 1
   m_endColliders:
   - {fileID: 7089283247591811929}
   - {fileID: 5868612581564415220}
@@ -1000,8 +1000,8 @@ MonoBehaviour:
   m_tailPoint: {fileID: 5671664494459697254}
   m_tailFollowSpeed: Infinity
   m_followOffset: {x: 0, y: 0, z: 0}
-  m_snapVisualExactlyWhileFollowing: 0
-  m_preferTailPointForVisualFollow: 0
+  m_snapVisualExactlyWhileFollowing: 1
+  m_preferTailPointForVisualFollow: 1
   m_preferredFollowTargetName: AnchorRope
   m_keepRopeTautWhileFollowing: 1
   m_autoStabilizeDuration: 2
