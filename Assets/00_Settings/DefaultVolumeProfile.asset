@@ -154,7 +154,7 @@ MonoBehaviour:
   active: 1
   intensity:
     m_OverrideState: 1
-    m_Value: 0
+    m_Value: 0.135
 --- !u!114 &-6824828279462086768
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -241,10 +241,10 @@ MonoBehaviour:
     m_Value: 0
   intensity:
     m_OverrideState: 1
-    m_Value: 0
+    m_Value: 0.082
   response:
     m_OverrideState: 1
-    m_Value: 0.8
+    m_Value: 0.602
   texture:
     m_OverrideState: 1
     m_Value: {fileID: 0}
@@ -577,19 +577,19 @@ MonoBehaviour:
     m_Value: 1
   threshold:
     m_OverrideState: 1
-    m_Value: 0.6
+    m_Value: 2.82
   intensity:
     m_OverrideState: 1
-    m_Value: 3.18
+    m_Value: 1.43
   scatter:
     m_OverrideState: 1
-    m_Value: 0.43
+    m_Value: 0.083
   clamp:
     m_OverrideState: 1
     m_Value: 65472
   tint:
     m_OverrideState: 1
-    m_Value: {r: 1, g: 1, b: 1, a: 1}
+    m_Value: {r: 0.38679248, g: 0.38679248, b: 0.38679248, a: 1}
   highQualityFiltering:
     m_OverrideState: 1
     m_Value: 0
@@ -1059,7 +1059,7 @@ MonoBehaviour:
     m_Value: 0
   tint:
     m_OverrideState: 1
-    m_Value: 0
+    m_Value: -1.4
 --- !u!114 &5931784544122850102
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -1084,7 +1084,7 @@ MonoBehaviour:
     m_Value: 0
   clamp:
     m_OverrideState: 1
-    m_Value: 0.05
+    m_Value: 0.0347
 --- !u!114 &6940869943325143175
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -1119,10 +1119,10 @@ MonoBehaviour:
     m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
-    m_Value: 0.38
+    m_Value: 0.404
   smoothness:
     m_OverrideState: 1
-    m_Value: 0.36
+    m_Value: 0.357
   rounded:
     m_OverrideState: 1
     m_Value: 0
