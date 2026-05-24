@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_Wood
+  m_Name: M_briquette
   m_Shader: {fileID: -6465566751694194690, guid: 17a19a2d0dcfa9548a82ceaff6dfb06d, type: 3}
   m_Parent: {fileID: 2100000, guid: 9ccb29ae374679144872a3fe5107d7ee, type: 2}
   m_ModifiedSerializedProperties: 0
