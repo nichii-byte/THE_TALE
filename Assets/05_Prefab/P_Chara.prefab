@@ -446,13 +446,17 @@ PrefabInstance:
       value: CharaFIX+mask_Zoe
       objectReference: {fileID: 0}
     - target: {fileID: 4912947972501399775, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4912947972501399775, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: c87955d14e421c84a9df44d7af95ba5f, type: 2}
+      objectReference: {fileID: 2100000, guid: 83c172ee565a6fa44922f14e1e1dc40c, type: 2}
     - target: {fileID: 4912947972501399775, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
       propertyPath: 'm_Materials.Array.data[1]'
       value: 
-      objectReference: {fileID: 2100000, guid: c87955d14e421c84a9df44d7af95ba5f, type: 2}
+      objectReference: {fileID: 2100000, guid: 83c172ee565a6fa44922f14e1e1dc40c, type: 2}
     - target: {fileID: 5866666021909216657, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
       propertyPath: m_Controller
       value: 
