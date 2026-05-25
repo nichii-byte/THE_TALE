@@ -9,6 +9,7 @@ public class GameUIManager : MonoBehaviour
     [Header("Screens")]
     [SerializeField] private GameObject m_mainMenuScreen;
     [SerializeField] private Button m_playButton;
+    [SerializeField] private Button m_quitButton;
 
     [SerializeField] private GameObject m_levelNameScreen;
     [SerializeField] private Text m_levelNameText;
@@ -39,6 +40,9 @@ public class GameUIManager : MonoBehaviour
         if (m_playButton != null)
             m_playButton.onClick.AddListener(OnPlayPressed);
 
+        if (m_quitButton != null)
+            m_quitButton.onClick.AddListener(OnQuitPressed);
+
         ShowMainMenu();
         RefreshDeathCount();
     }
@@ -47,6 +51,9 @@ public class GameUIManager : MonoBehaviour
     {
         if (m_playButton != null)
             m_playButton.onClick.RemoveListener(OnPlayPressed);
+
+        if (m_quitButton != null)
+            m_quitButton.onClick.RemoveListener(OnQuitPressed);
     }
 
     public void ShowMainMenu()
@@ -104,6 +111,15 @@ public class GameUIManager : MonoBehaviour
         if (m_levelNameScreen != null) m_levelNameScreen.SetActive(false);
         if (m_deathScreen != null) m_deathScreen.SetActive(false);
         if (m_endScreen != null) m_endScreen.SetActive(true);
+    }
+
+    public void OnQuitPressed()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     private IEnumerator PlayLevelNameRoutine()

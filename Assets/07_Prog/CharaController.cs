@@ -17,7 +17,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     [Header("References")]
     [SerializeField] private Rigidbody m_rb;
     [SerializeField] private GroundCheck m_groundCheck;
-    [SerializeField] private Animator m_anim; // Animator reference
+    [SerializeField] private Animator m_anim; 
 
     [Header("Movement")]
     [SerializeField] private float m_acceleration = 30f;
@@ -98,17 +98,17 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     // rope / swing
     private SwingRope m_currentSwingRope;
     private SpringJoint m_swingJoint;
-    private Collider m_currentRopeCollider; // exact collider we triggered on
+    private Collider m_currentRopeCollider; 
     private ClimbRope m_currentClimbRope;
     private float m_climbParam = 1f;
     private Vector3 m_climbSideOffsetDirection = Vector3.forward;
 
     // attachment runtime
-    private float m_attachParam = 0f; // 0..1 along rope (0=anchor,1=tail)
+    private float m_attachParam = 0f; 
     private Vector3 m_attachPoint;
 
     // swing runtime
-    private float m_swingCharge = 0f; // 0..maxCharge
+    private float m_swingCharge = 0f; 
     public bool IsSwinging => m_isSwinging;
     public float SwingChargeNormalized => m_maxCharge > 0f ? Mathf.Clamp01(m_swingCharge / m_maxCharge) : 0f;
     private Vector3 m_swingAxis = Vector3.forward;
@@ -173,10 +173,8 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_rb.linearDamping = GetClampedLinearDamping(m_airLinearDamping);
         }
 
-        // ensure ground check runs so animator doesn't start in falling
         CheckGround();
 
-        // update animator initial state
         UpdateAnimatorParameters(true);
     }
 
@@ -221,7 +219,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (m_isClimbing)
         {
             HandleClimbMovement();
-            // animator update after physics
             UpdateAnimatorParameters(false);
             return;
         }
@@ -234,7 +231,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
         ApplyGravity();
 
-        // update animator parameters after physics steps to reflect current grounded/swinging states
         UpdateAnimatorParameters(false);
     }
 
@@ -283,7 +279,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     // MOVEMENT
     private void HandleMovement()
     {
-        // don't apply standard movement forces while swinging
         if (m_isSwinging || m_isClimbing) return;
 
         float control = m_isGrounded ? 1f : m_airControl;
@@ -407,7 +402,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_isJumping = true;
         m_jumpTimer = 0f;
 
-        // Animator: use trigger for jump start instead of a persistent bool
         if (m_anim != null)
         {
             m_anim.SetTrigger("JumpTrigger");
@@ -416,7 +410,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void ApplyGravity()
     {
-        // do not apply manual gravity while swinging; Rigidbody.useGravity handles it
         if (m_isSwinging || m_isClimbing) return;
         if (m_rb == null) return;
 
@@ -651,7 +644,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_swingJoint = gameObject.AddComponent<SpringJoint>();
         }
 
-        // compute attach point: prefer the exact collider we entered, else closest point on rope
         if (m_currentRopeCollider != null)
         {
             m_attachPoint = m_currentRopeCollider.ClosestPoint(transform.position);
@@ -661,7 +653,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_attachPoint = m_currentSwingRope.GetClosestPointOnRope(transform.position);
         }
 
-        // compute param along rope (0..1) using the attach point
         m_attachParam = m_currentSwingRope != null ? m_currentSwingRope.GetClosestPointParam(m_attachPoint) : 0f;
 
         float currentDistance = Vector3.Distance(m_attachPoint, transform.position);
@@ -675,7 +666,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_minSwingDistanceFromAnchor
         );
 
-        // pick the rigidbody to connect to: prefer the collider's attached rigidbody, else rope's anchor rb
         Rigidbody connectRb = null;
         if (m_currentRopeCollider != null)
         {
@@ -690,7 +680,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (connectRb != null && connectRb != m_rb)
         {
             m_swingJoint.connectedBody = connectRb;
-            // connectedAnchor is in connectedBody local space
             m_swingJoint.connectedAnchor = connectRb.transform.InverseTransformPoint(m_attachPoint);
         }
         else
@@ -706,7 +695,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_swingJoint.tolerance = 0f;
         m_swingJoint.enableCollision = false;
 
-        // disable rope end colliders to avoid retriggers and start visual follow on the touched bone
         m_currentSwingRope.SetEndCollidersEnabled(false);
         Transform attachedBone = m_currentRopeCollider != null
             ? (m_currentRopeCollider.attachedRigidbody != null ? m_currentRopeCollider.attachedRigidbody.transform : m_currentRopeCollider.transform)
@@ -739,7 +727,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_rb.linearVelocity = preservedVelocity - radialDir * Vector3.Dot(preservedVelocity, radialDir);
         }
 
-        // reset charge on attach
         m_swingCharge = 0f;
     }
 
@@ -784,7 +771,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         constrainedPosition = ConstrainPositionAroundRopeAnchor(constrainedPosition, swingAxisPlanar, ref reachedTopLimit);
         m_rb.MovePosition(constrainedPosition);
 
-        // compute radial and tangential components of velocity
         Vector3 dir = constrainedPosition - anchorPosition;
         if (dir.sqrMagnitude > 1e-6f)
             dir.Normalize();
@@ -843,7 +829,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_swingCharge = Mathf.MoveTowards(m_swingCharge, 0f, kSwingChargeDecayPerSecond * Time.fixedDeltaTime);
         }
 
-        // rotate character towards the chosen swing axis
         Vector3 desiredForward = Vector3.ProjectOnPlane(m_swingAxis, Vector3.up).normalized;
         if (desiredForward.sqrMagnitude < 0.001f && tangentialVel.sqrMagnitude > 0.01f)
             desiredForward = Vector3.ProjectOnPlane(tangentialVel.normalized, Vector3.up);
@@ -971,17 +956,14 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_rb.linearVelocity = launchVelocity;
         }
 
-        // réactiver les colliders aprés un délai configurable pour éviter retriggers immédiats
         if (ropeToReactivate != null)
         {
             StartCoroutine(ReenableEndCollidersCoroutine(ropeToReactivate));
         }
 
-        // clear reference to current swing rope and collider
         m_currentSwingRope = null;
         m_currentRopeCollider = null;
 
-        // reset charge
         m_swingCharge = 0f;
     }
 
@@ -1028,7 +1010,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         }
     }
 
-    // TRIGGERS for rope detection
+    // TRIGGERS
     private void OnTriggerEnter(Collider other)
     {
         if (other == null) return;
@@ -1048,10 +1030,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (swingRope != null)
         {
             m_currentSwingRope = swingRope;
-            m_currentRopeCollider = other; // keep exact collider touched so we can attach to that bone
+            m_currentRopeCollider = other;
             Debug.Log("Detecte SwingRope: " + swingRope.name + " (collider=" + other.name + ")");
 
-            // Auto-attach immediately when entering the rope trigger
             if (!m_isSwinging && !m_isClimbing)
             {
                 StartSwingWithJoint();
@@ -1096,21 +1077,16 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         bool isWalking = !m_isSwinging && !m_isClimbing && m_moveDirection.sqrMagnitude > 0.01f && !(m_runInput != null && m_runInput.action.IsPressed());
         bool isRunning = !m_isSwinging && !m_isClimbing && (m_runInput != null && m_runInput.action.IsPressed()) && m_moveDirection.sqrMagnitude > 0.1f;
         bool onGround = m_isGrounded;
-        // jump is now a trigger handled in Jump(), keep internal m_isJumping for logic but do not set a bool on animator
         bool isClimbing = m_isClimbing;
         bool isSwinging = m_isSwinging;
 
-        // If forcing initial animator state (e.g. after ResetRuntimeState), avoid triggering falling animation
         if (force)
         {
-            // treat as grounded for display purposes until first physics update
             onGround = true;
-            // ensure locomotion flags false unless movement input present
             isClimbing = false;
             isSwinging = false;
         }
 
-        // set animator bools
         m_anim.SetBool("IsWalking", isWalking);
         m_anim.SetBool("IsRunning", isRunning);
         m_anim.SetBool("OnGround", onGround);
