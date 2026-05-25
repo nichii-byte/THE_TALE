@@ -64,7 +64,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7700398895501104666}
-  - component: {fileID: 4095910621679963886}
   m_Layer: 0
   m_Name: Anim
   m_TagString: Untagged
@@ -88,28 +87,6 @@ Transform:
   - {fileID: 6962583381730282698}
   m_Father: {fileID: 2230279471155623681}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!95 &4095910621679963886
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5469906829804212438}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 970592d4fe62a774d9bb1ba76910dd1f, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &6316344782407552359
 GameObject:
   m_ObjectHideFlags: 0
@@ -174,7 +151,6 @@ GameObject:
   - component: {fileID: 4357045597351875225}
   - component: {fileID: 5751193235542927393}
   - component: {fileID: 5293115372581322126}
-  - component: {fileID: -251601843190274561}
   m_Layer: 0
   m_Name: P_Chara
   m_TagString: Player
@@ -216,6 +192,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rb: {fileID: 5293115372581322126}
   m_groundCheck: {fileID: 5072063006172395267}
+  m_anim: {fileID: 3909190888671123120}
   m_acceleration: 15
   m_airControl: 0.7
   m_rotationSpeed: 15
@@ -252,7 +229,7 @@ MonoBehaviour:
   m_moveInput: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_runInput: {fileID: -7471211009204490832, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_jumpInput: {fileID: -2099379676528639254, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  m_detachInput: {fileID: 0}
+  m_detachInput: {fileID: -2099379676528639254, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!54 &5293115372581322126
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -280,28 +257,6 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 112
   m_CollisionDetection: 1
---- !u!95 &-251601843190274561
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6794167804009174209}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 8b5f4c61c7502448a8aa5a5d7575ed60, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &6927452210587935634
 GameObject:
   m_ObjectHideFlags: 0
@@ -488,7 +443,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
       propertyPath: m_Name
-      value: CharaFIX+mask_Zoe@Standard Walk
+      value: CharaFIX+mask_Zoe
       objectReference: {fileID: 0}
     - target: {fileID: 4912947972501399775, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -502,11 +457,20 @@ PrefabInstance:
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: 8b5f4c61c7502448a8aa5a5d7575ed60, type: 2}
+    - target: {fileID: 5866666021909216657, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
+      propertyPath: m_AnimatePhysics
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
+--- !u!95 &3909190888671123120 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: aef717be4bdf04e238af72220e2a1974, type: 3}
+  m_PrefabInstance: {fileID: 7433940842486639393}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &6962583381730282698 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: aef717be4bdf04e238af72220e2a1974, type: 3}

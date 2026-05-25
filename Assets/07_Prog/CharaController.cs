@@ -17,6 +17,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     [Header("References")]
     [SerializeField] private Rigidbody m_rb;
     [SerializeField] private GroundCheck m_groundCheck;
+    [SerializeField] private Animator m_anim; // Animator reference
 
     [Header("Movement")]
     [SerializeField] private float m_acceleration = 30f;
@@ -115,6 +116,8 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     private float m_minSwingDistanceFromAnchor = 0f;
     private float m_swingRadiusFromAnchor = 0f;
 
+    private Coroutine m_shrinkRoutine;
+
     private void Start()
     {
         if (m_moveInput != null) m_moveInput.action.Enable();
@@ -127,6 +130,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
         if (m_rb == null) Debug.LogError("CharaController: Rigidbody reference is missing.");
         if (m_groundCheck == null) Debug.LogWarning("CharaController: GroundCheck missing - ground detection will fail.");
+        if (m_anim == null) Debug.LogWarning("CharaController: Animator not assigned. Animator parameters won't be updated.");
 
         ResetRuntimeState();
     }
@@ -168,6 +172,12 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_rb.angularVelocity = Vector3.zero;
             m_rb.linearDamping = GetClampedLinearDamping(m_airLinearDamping);
         }
+
+        // ensure ground check runs so animator doesn't start in falling
+        CheckGround();
+
+        // update animator initial state
+        UpdateAnimatorParameters(true);
     }
 
     public void RespawnAt(Vector3 worldPosition, Quaternion worldRotation)
@@ -211,6 +221,8 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (m_isClimbing)
         {
             HandleClimbMovement();
+            // animator update after physics
+            UpdateAnimatorParameters(false);
             return;
         }
 
@@ -221,6 +233,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             HandleMovement();
 
         ApplyGravity();
+
+        // update animator parameters after physics steps to reflect current grounded/swinging states
+        UpdateAnimatorParameters(false);
     }
 
     // INPUT
@@ -391,6 +406,12 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
         m_isJumping = true;
         m_jumpTimer = 0f;
+
+        // Animator: use trigger for jump start instead of a persistent bool
+        if (m_anim != null)
+        {
+            m_anim.SetTrigger("JumpTrigger");
+        }
     }
 
     private void ApplyGravity()
@@ -1065,6 +1086,36 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         {
             m_currentRopeCollider = null;
         }
+    }
+
+    // Animator synchronization
+    private void UpdateAnimatorParameters(bool force)
+    {
+        if (m_anim == null) return;
+
+        bool isWalking = !m_isSwinging && !m_isClimbing && m_moveDirection.sqrMagnitude > 0.01f && !(m_runInput != null && m_runInput.action.IsPressed());
+        bool isRunning = !m_isSwinging && !m_isClimbing && (m_runInput != null && m_runInput.action.IsPressed()) && m_moveDirection.sqrMagnitude > 0.1f;
+        bool onGround = m_isGrounded;
+        // jump is now a trigger handled in Jump(), keep internal m_isJumping for logic but do not set a bool on animator
+        bool isClimbing = m_isClimbing;
+        bool isSwinging = m_isSwinging;
+
+        // If forcing initial animator state (e.g. after ResetRuntimeState), avoid triggering falling animation
+        if (force)
+        {
+            // treat as grounded for display purposes until first physics update
+            onGround = true;
+            // ensure locomotion flags false unless movement input present
+            isClimbing = false;
+            isSwinging = false;
+        }
+
+        // set animator bools
+        m_anim.SetBool("IsWalking", isWalking);
+        m_anim.SetBool("IsRunning", isRunning);
+        m_anim.SetBool("OnGround", onGround);
+        m_anim.SetBool("IsClimbing", isClimbing);
+        m_anim.SetBool("IsSwinging", isSwinging);
     }
 
 }
