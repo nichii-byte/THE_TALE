@@ -25,7 +25,7 @@ Transform:
   m_GameObject: {fileID: 105944995903692090}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.49492848, z: -0, w: 0.86893374}
-  m_LocalPosition: {x: 189.50882, y: 4.380001, z: 166.64815}
+  m_LocalPosition: {x: 189.50882, y: 6.34, z: 166.64815}
   m_LocalScale: {x: 3.6308603, y: 2.00355, z: 0.66315013}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -83,7 +83,8 @@ MonoBehaviour:
   m_restartSequenceWhenTriggeredAgain: 1
   m_triggerOnEnable: 1
   m_handRoot: {fileID: 255247303711687378}
-  m_additionalMovingRoots: []
+  m_additionalMovingRoots:
+  - {fileID: 6516685636478978834}
   m_retractedPoint: {fileID: 3951161159797849163}
   m_extendedPoint: {fileID: 727792810962204376}
   m_activationTrigger: {fileID: 0}
