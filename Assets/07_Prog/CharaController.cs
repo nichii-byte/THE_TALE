@@ -614,6 +614,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (jumpOff)
         {
             m_isJumping = true;
+            m_anim.SetTrigger("JumpTrigger");
             m_jumpTimer = 0f;
             m_coyoteTimer = 0f;
             m_ignoreJumpUntilReleased = true;
@@ -624,6 +625,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     {
         m_isClimbing = false;
         m_currentClimbRope = null;
+        
 
         if (m_rb != null)
         {
@@ -947,6 +949,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         {
             m_rb.AddForce(launchVelocity, ForceMode.VelocityChange);
             m_isJumping = true;
+            m_anim.SetTrigger("JumpTrigger");
             m_jumpTimer = 0f;
             m_coyoteTimer = 0f;
             m_jumpBufferTimer = 0f;
