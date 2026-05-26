@@ -50,10 +50,39 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: de58dbf4aecc8924586bd00591ee469d, type: 3}
       propertyPath: m_Name
-      value: vespa
+      value: P_vespa
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: de58dbf4aecc8924586bd00591ee469d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 536513956576449701}
   m_SourcePrefab: {fileID: 100100000, guid: de58dbf4aecc8924586bd00591ee469d, type: 3}
+--- !u!1 &9007855817180243846 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: de58dbf4aecc8924586bd00591ee469d, type: 3}
+  m_PrefabInstance: {fileID: 8197462757880879831}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &536513956576449701
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9007855817180243846}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.061376, y: 2.009663, z: 4.2805333}
+  m_Center: {x: 0.0052558053, y: -0.048340164, z: -0.48358363}

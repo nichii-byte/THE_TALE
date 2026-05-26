@@ -54,7 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 1d5d755a38c15204490a103ce600ad95, type: 2}
     - target: {fileID: 919132149155446097, guid: 8982a8a8a9348844292e34c04ef2603d, type: 3}
       propertyPath: m_Name
-      value: clime
+      value: P_clim
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 8982a8a8a9348844292e34c04ef2603d, type: 3}
       propertyPath: m_Layer
@@ -98,5 +98,5 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 3.587452, y: 5.3464737, z: 2.6500173}
-  m_Center: {x: 0.53725624, y: 1.2278459, z: 0.09122444}
+  m_Size: {x: 3.2024758, y: 5.2180843, z: 2.2605562}
+  m_Center: {x: 0.55488074, y: 1.1636512, z: -0.103505604}
