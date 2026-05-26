@@ -405,6 +405,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (m_anim != null)
         {
             m_anim.SetTrigger("JumpTrigger");
+            m_anim.SetBool("IsJumping", true);
         }
     }
 
