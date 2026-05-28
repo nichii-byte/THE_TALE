@@ -82,6 +82,7 @@ MonoBehaviour:
   m_activationMode: 0
   m_restartSequenceWhenTriggeredAgain: 1
   m_triggerOnEnable: 1
+  m_triggerOnRuntimeReset: 1
   m_handRoot: {fileID: 255247303711687378}
   m_additionalMovingRoots:
   - {fileID: 6516685636478978834}

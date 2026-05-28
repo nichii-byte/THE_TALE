@@ -140,6 +140,7 @@ public class CheckpointManager : MonoBehaviour
             m_player.RespawnAt(m_currentSpawnPosition, m_currentSpawnRotation);
         }
 
+        ResetRuntimeObjects();
         m_isRespawning = false;
     }
 

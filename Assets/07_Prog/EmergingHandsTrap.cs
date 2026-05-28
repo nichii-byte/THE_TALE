@@ -14,6 +14,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     [SerializeField] private ActivationMode m_activationMode = ActivationMode.TriggerZone;
     [SerializeField] private bool m_restartSequenceWhenTriggeredAgain = true;
     [SerializeField] private bool m_triggerOnEnable = false;
+    [SerializeField] private bool m_triggerOnRuntimeReset = false;
 
     [Header("References")]
     [SerializeField] private Transform m_handRoot;
@@ -63,7 +64,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
 
     private void OnEnable()
     {
-        ResetRuntimeState();
+        ResetRuntimeState(false);
 
         if (m_triggerOnEnable)
             TriggerTrap();
@@ -91,6 +92,11 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
 
     public void ResetRuntimeState()
     {
+        ResetRuntimeState(m_triggerOnRuntimeReset);
+    }
+
+    private void ResetRuntimeState(bool triggerAfterReset)
+    {
         StopRuntimeCoroutines();
         m_lastTriggerTime = float.NegativeInfinity;
         m_playerActivationColliders.Clear();
@@ -103,6 +109,11 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         if (m_activationMode == ActivationMode.Timer && isActiveAndEnabled)
         {
             m_timerRoutine = StartCoroutine(TimerRoutine());
+        }
+
+        if (triggerAfterReset && m_triggerOnEnable)
+        {
+            TriggerTrap();
         }
     }
 
