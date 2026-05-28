@@ -193,6 +193,19 @@ MonoBehaviour:
   m_rb: {fileID: 5293115372581322126}
   m_groundCheck: {fileID: 5072063006172395267}
   m_anim: {fileID: 3909190888671123120}
+  m_audioSource: {fileID: 0}
+  m_stepClips:
+  - {fileID: 8300000, guid: b192508b71a0a3e4986d626bb68a3d69, type: 3}
+  - {fileID: 8300000, guid: 9f2a6e490b1fb0242b76600b7f748113, type: 3}
+  - {fileID: 8300000, guid: b1fc4a58e5022304e82aa8957b9e7496, type: 3}
+  m_jumpUpClip: {fileID: 8300000, guid: 1af5f313c3348b0409ea6d959ade3619, type: 3}
+  m_jumpDownClip: {fileID: 8300000, guid: 58fdf8c939a3a864babee6b689c180f9, type: 3}
+  m_walkStepInterval: 0.38
+  m_runStepInterval: 0.24
+  m_minStepSpeed: 0.2
+  m_minLandingAirTime: 0.08
+  m_stepVolume: 0.8
+  m_jumpVolume: 0.9
   m_acceleration: 15
   m_airControl: 0.7
   m_rotationSpeed: 15

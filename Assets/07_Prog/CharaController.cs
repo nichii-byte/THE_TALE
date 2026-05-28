@@ -19,6 +19,18 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     [SerializeField] private GroundCheck m_groundCheck;
     [SerializeField] private Animator m_anim; 
 
+    [Header("Audio")]
+    [SerializeField] private AudioSource m_audioSource;
+    [SerializeField] private AudioClip[] m_stepClips;
+    [SerializeField] private AudioClip m_jumpUpClip;
+    [SerializeField] private AudioClip m_jumpDownClip;
+    [SerializeField] private float m_walkStepInterval = 0.38f;
+    [SerializeField] private float m_runStepInterval = 0.24f;
+    [SerializeField] private float m_minStepSpeed = 0.2f;
+    [SerializeField] private float m_minLandingAirTime = 0.08f;
+    [SerializeField] [Range(0f, 1f)] private float m_stepVolume = 0.8f;
+    [SerializeField] [Range(0f, 1f)] private float m_jumpVolume = 0.9f;
+
     [Header("Movement")]
     [SerializeField] private float m_acceleration = 30f;
     [SerializeField] private float m_airControl = 0.5f;
@@ -94,6 +106,10 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     private float m_jumpVelocity;
     private Vector3 m_moveDirection;
     private bool m_ignoreJumpUntilReleased;
+    private float m_stepTimer;
+    private int m_lastStepClipIndex = -1;
+    private bool m_landingSoundArmed;
+    private float m_airborneTimer;
 
     // rope / swing
     private SwingRope m_currentSwingRope;
@@ -132,6 +148,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (m_groundCheck == null) Debug.LogWarning("CharaController: GroundCheck missing - ground detection will fail.");
         if (m_anim == null) Debug.LogWarning("CharaController: Animator not assigned. Animator parameters won't be updated.");
 
+        EnsureAudioSource();
         ResetRuntimeState();
     }
 
@@ -154,6 +171,10 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_currentSpeed = 0f;
         m_moveDirection = Vector3.zero;
         m_ignoreJumpUntilReleased = false;
+        m_stepTimer = 0f;
+        m_lastStepClipIndex = -1;
+        m_landingSoundArmed = false;
+        m_airborneTimer = 0f;
         m_attachParam = 0f;
         m_attachPoint = Vector3.zero;
         m_climbParam = 1f;
@@ -174,6 +195,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         }
 
         CheckGround();
+
+        if (m_audioSource != null)
+            m_audioSource.Stop();
 
         UpdateAnimatorParameters(true);
     }
@@ -205,6 +229,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         HandleRotation();
         HandleJumpInput();
         SetDamping();
+        HandleFootstepAudio();
 
         if (m_ignoreJumpUntilReleased && (m_jumpInput == null || !m_jumpInput.action.IsPressed()))
         {
@@ -400,7 +425,10 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_rb.AddForce(Vector3.up * m_jumpVelocity, ForceMode.VelocityChange);
 
         m_isJumping = true;
+        m_landingSoundArmed = true;
+        m_airborneTimer = 0f;
         m_jumpTimer = 0f;
+        PlayOneShot(m_jumpUpClip, m_jumpVolume);
 
         if (m_anim != null)
         {
@@ -436,9 +464,22 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     {
         if (m_groundCheck == null) { m_isGrounded = false; return; }
 
+        bool wasGrounded = m_isGrounded;
         m_isGrounded = m_groundCheck.GetIsHitting();
         if (m_isGrounded)
         {
+            if (!wasGrounded)
+            {
+                if (m_landingSoundArmed && m_airborneTimer >= m_minLandingAirTime)
+                {
+                    PlayOneShot(m_jumpDownClip, m_jumpVolume);
+                }
+
+                m_landingSoundArmed = false;
+                m_airborneTimer = 0f;
+                m_stepTimer = Mathf.Max(m_stepTimer, 0.08f);
+            }
+
             m_coyoteTimer = m_coyoteTime;
 
             if (m_rb == null || m_rb.linearVelocity.y <= 0.05f)
@@ -449,8 +490,87 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         }
         else
         {
+            if (wasGrounded)
+            {
+                m_landingSoundArmed = true;
+                m_airborneTimer = Time.fixedDeltaTime;
+            }
+            else
+            {
+                m_airborneTimer += Time.fixedDeltaTime;
+            }
+
             m_coyoteTimer = Mathf.Max(0f, m_coyoteTimer - Time.fixedDeltaTime);
         }
+    }
+
+    private void HandleFootstepAudio()
+    {
+        if (!CanPlayFootsteps())
+        {
+            m_stepTimer = 0f;
+            return;
+        }
+
+        m_stepTimer -= Time.deltaTime;
+        if (m_stepTimer > 0f)
+            return;
+
+        PlayStepSound();
+
+        bool isRunning = m_runInput != null && m_runInput.action.IsPressed();
+        m_stepTimer = Mathf.Max(0.05f, isRunning ? m_runStepInterval : m_walkStepInterval);
+    }
+
+    private bool CanPlayFootsteps()
+    {
+        if (!m_isGrounded || m_isSwinging || m_isClimbing || m_moveDirection.sqrMagnitude < 0.01f)
+            return false;
+
+        if (m_rb == null)
+            return m_currentSpeed > m_minStepSpeed;
+
+        Vector3 horizontalVelocity = m_rb.linearVelocity;
+        horizontalVelocity.y = 0f;
+        return horizontalVelocity.magnitude > m_minStepSpeed;
+    }
+
+    private void PlayStepSound()
+    {
+        if (m_stepClips == null || m_stepClips.Length == 0)
+            return;
+
+        int clipIndex = Random.Range(0, m_stepClips.Length);
+        if (m_stepClips.Length > 1 && clipIndex == m_lastStepClipIndex)
+            clipIndex = (clipIndex + 1) % m_stepClips.Length;
+
+        AudioClip clip = m_stepClips[clipIndex];
+        if (clip == null)
+            return;
+
+        m_lastStepClipIndex = clipIndex;
+        PlayOneShot(clip, m_stepVolume);
+    }
+
+    private void PlayOneShot(AudioClip clip, float volume)
+    {
+        if (clip == null)
+            return;
+
+        EnsureAudioSource();
+        if (m_audioSource != null)
+            m_audioSource.PlayOneShot(clip, volume);
+    }
+
+    private void EnsureAudioSource()
+    {
+        if (m_audioSource == null)
+            m_audioSource = GetComponent<AudioSource>();
+
+        if (m_audioSource == null)
+            m_audioSource = gameObject.AddComponent<AudioSource>();
+
+        m_audioSource.playOnAwake = false;
     }
 
     // SWING (SpringJoint)  
@@ -614,6 +734,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (jumpOff)
         {
             m_isJumping = true;
+            m_landingSoundArmed = true;
+            m_airborneTimer = 0f;
+            PlayOneShot(m_jumpUpClip, m_jumpVolume);
             m_anim.SetTrigger("JumpTrigger");
             m_jumpTimer = 0f;
             m_coyoteTimer = 0f;
@@ -949,6 +1072,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         {
             m_rb.AddForce(launchVelocity, ForceMode.VelocityChange);
             m_isJumping = true;
+            m_landingSoundArmed = true;
+            m_airborneTimer = 0f;
+            PlayOneShot(m_jumpUpClip, m_jumpVolume);
             m_anim.SetTrigger("JumpTrigger");
             m_jumpTimer = 0f;
             m_coyoteTimer = 0f;
