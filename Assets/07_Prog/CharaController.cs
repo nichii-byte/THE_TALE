@@ -14,10 +14,19 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     private const float kSwingReleaseAnglePlanarBonus = 2.5f;
     private const float kSwingReleaseAngleUpwardBonus = 1.75f;
 
+    private enum ClimbState
+    {
+        None,
+        Climbing,
+        Idle
+    }
+
     [Header("References")]
     [SerializeField] private Rigidbody m_rb;
     [SerializeField] private GroundCheck m_groundCheck;
     [SerializeField] private Animator m_anim; 
+    // sauvegarde de la vitesse de l'animator pour pause / reprise
+    private float m_savedAnimSpeed = 1f;
 
     [Header("Audio")]
     [SerializeField] private AudioSource m_audioSource;
@@ -99,7 +108,8 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     private bool m_isGrounded;
     private bool m_isJumping;
     private bool m_isSwinging;
-    private bool m_isClimbing;
+    // Remplacé par l'enum d'état de grimpe
+    private ClimbState m_climbState = ClimbState.None;
 
     // physics & movement
     private float m_jumpTimer; 
@@ -138,6 +148,11 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private Coroutine m_shrinkRoutine;
 
+    // helpers pour état de grimpe
+    private bool IsClimbing => m_climbState == ClimbState.Climbing;
+    private bool IsIdleClimb => m_climbState == ClimbState.Idle;
+    private bool IsAttachedToClimb => m_climbState != ClimbState.None;
+
     private void Start()
     {
         if (m_moveInput != null) m_moveInput.action.Enable();
@@ -151,6 +166,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (m_rb == null) Debug.LogError("CharaController: Rigidbody reference is missing.");
         if (m_groundCheck == null) Debug.LogWarning("CharaController: GroundCheck missing - ground detection will fail.");
         if (m_anim == null) Debug.LogWarning("CharaController: Animator not assigned. Animator parameters won't be updated.");
+
+        if (m_anim != null)
+            m_savedAnimSpeed = m_anim.speed;
 
         EnsureAudioSource();
         ResetRuntimeState();
@@ -245,7 +263,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     private void FixedUpdate()
     {
         CheckGround();
-        if (m_isClimbing)
+        if (IsAttachedToClimb)
         {
             HandleClimbMovement();
             UpdateAnimatorParameters(false);
@@ -308,7 +326,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     // MOVEMENT
     private void HandleMovement()
     {
-        if (m_isSwinging || m_isClimbing) return;
+        if (m_isSwinging || IsAttachedToClimb) return;
 
         float control = m_isGrounded ? 1f : m_airControl;
 
@@ -323,7 +341,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void HandleRotation()
     {
-        if (m_isSwinging || m_isClimbing) return;
+        if (m_isSwinging || IsAttachedToClimb) return;
 
         if (m_moveDirection.sqrMagnitude < 0.01f) return;
 
@@ -339,7 +357,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void UpdateSpeed()
     {
-        if (m_isSwinging || m_isClimbing)
+        if (m_isSwinging || IsAttachedToClimb)
         {
             m_currentSpeed = 0f;
             return;
@@ -359,7 +377,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             return;
         }
 
-        if (m_isClimbing)
+        if (IsAttachedToClimb)
         {
             m_rb.linearDamping = GetClampedLinearDamping(m_climbLinearDamping);
             return;
@@ -380,7 +398,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             return;
         }
 
-        if (m_isClimbing)
+        if (IsAttachedToClimb)
         {
             m_jumpBufferTimer = 0f;
             return;
@@ -408,7 +426,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void ResolveJump()
     {
-        if (m_isClimbing) return;
+        if (IsAttachedToClimb) return;
         if (m_isSwinging) return;
         if (m_jumpBufferTimer <= 0f) return;
         if (!m_isGrounded && m_coyoteTimer <= 0f) return;
@@ -443,7 +461,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void ApplyGravity()
     {
-        if (m_isSwinging || m_isClimbing) return;
+        if (m_isSwinging || IsAttachedToClimb) return;
         if (m_rb == null) return;
 
         float gravityMultiplier = 1f;
@@ -528,7 +546,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private bool CanPlayFootsteps()
     {
-        if (!m_isGrounded || m_isSwinging || m_isClimbing || m_moveDirection.sqrMagnitude < 0.01f)
+        if (!m_isGrounded || m_isSwinging || IsAttachedToClimb || m_moveDirection.sqrMagnitude < 0.01f)
             return false;
 
         if (m_rb == null)
@@ -580,7 +598,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     // SWING (SpringJoint)  
     private void HandleSwingInput()
     {
-        if (m_isClimbing) return;
+        if (IsAttachedToClimb) return;
         if (!m_isSwinging) return;
 
         if (WasSwingLaunchPressed())
@@ -597,7 +615,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void HandleClimbInput()
     {
-        if (!m_isClimbing) return;
+        if (!IsAttachedToClimb) return;
 
         if (WasDetachPressed())
         {
@@ -654,10 +672,17 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     private void StartClimb(ClimbRope climbRope)
     {
         if (climbRope == null || m_rb == null) return;
-        if (m_isSwinging || m_isClimbing) return;
+        if (m_isSwinging || IsAttachedToClimb) return;
 
         m_currentClimbRope = climbRope;
-        m_isClimbing = true;
+
+        // si on démarre la grimpe, on repart l'anim si elle était en pause
+        if (m_anim != null)
+        {
+            m_anim.speed = m_savedAnimSpeed > 0f ? m_savedAnimSpeed : 1f;
+        }
+
+        m_climbState = ClimbState.Climbing;
         m_isJumping = false;
         m_jumpTimer = 0f;
         m_jumpBufferTimer = 0f;
@@ -683,18 +708,74 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void HandleClimbMovement()
     {
-        if (!m_isClimbing || m_currentClimbRope == null || m_rb == null) return;
+        if (!IsAttachedToClimb || m_currentClimbRope == null || m_rb == null) return;
 
         Vector2 rawInput = m_moveInput != null ? m_moveInput.action.ReadValue<Vector2>() : Vector2.zero;
+        float verticalInput = rawInput.y;
         float ropeLength = Mathf.Max(0.1f, m_currentClimbRope.RopeLength);
-        m_climbParam = Mathf.Clamp01(m_climbParam - (rawInput.y * m_climbSpeed * Time.fixedDeltaTime / ropeLength));
 
-        SnapToClimbRope(1f - Mathf.Exp(-m_climbSnapSpeed * Time.fixedDeltaTime));
+        const float idleThreshold = 0.05f;
 
-        if (m_climbParam >= 0.999f && rawInput.y < -0.1f && m_isGrounded)
+        if (m_climbState == ClimbState.Climbing)
         {
-            StopClimb(false);
+            // si plus d'input -> passer en IdleClimb (mettre pause de l'anim)
+            if (Mathf.Abs(verticalInput) < idleThreshold)
+            {
+                EnterIdleClimb();
+                // garder la position verrouillée
+                SnapToClimbRope(1f - Mathf.Exp(-m_climbSnapSpeed * Time.fixedDeltaTime));
+                return;
+            }
+
+            m_climbParam = Mathf.Clamp01(m_climbParam - (verticalInput * m_climbSpeed * Time.fixedDeltaTime / ropeLength));
+            SnapToClimbRope(1f - Mathf.Exp(-m_climbSnapSpeed * Time.fixedDeltaTime));
+
+            if (m_climbParam >= 0.999f && verticalInput < -0.1f && m_isGrounded)
+            {
+                StopClimb(false);
+            }
         }
+        else if (m_climbState == ClimbState.Idle)
+        {
+            // si input revient -> reprendre la grimpe (reprendre l'anim)
+            if (Mathf.Abs(verticalInput) >= idleThreshold)
+            {
+                ExitIdleClimb();
+                // laisser la prochaine frame traiter le mouvement normalement
+                return;
+            }
+
+            // rester collé à la corde
+            SnapToClimbRope(1f - Mathf.Exp(-m_climbSnapSpeed * Time.fixedDeltaTime));
+        }
+    }
+
+    private void EnterIdleClimb()
+    {
+        if (m_climbState == ClimbState.Idle) return;
+
+        m_climbState = ClimbState.Idle;
+
+        // stopper proprement l'animation (pause)
+        if (m_anim != null)
+        {
+            m_savedAnimSpeed = m_anim.speed;
+            m_anim.speed = 0f;
+        }
+
+        // couper la velocité pour éviter glissement
+        if (m_rb != null)
+            m_rb.linearVelocity = Vector3.zero;
+    }
+
+    private void ExitIdleClimb()
+    {
+        if (m_climbState != ClimbState.Idle) return;
+
+        m_climbState = ClimbState.Climbing;
+
+        if (m_anim != null)
+            m_anim.speed = m_savedAnimSpeed > 0f ? m_savedAnimSpeed : 1f;
     }
 
     private void SnapToClimbRope(float snapAlpha)
@@ -716,7 +797,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void StopClimb(bool jumpOff)
     {
-        if (!m_isClimbing) return;
+        if (!IsAttachedToClimb) return;
 
         Vector3 releaseDirection = m_climbSideOffsetDirection.sqrMagnitude > 1e-4f
             ? m_climbSideOffsetDirection
@@ -742,7 +823,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_landingSoundArmed = true;
             m_airborneTimer = 0f;
             PlayOneShot(m_jumpUpClip, m_jumpVolume);
-            m_anim.SetTrigger("JumpTrigger");
+            if (m_anim != null) m_anim.SetTrigger("JumpTrigger");
             m_jumpTimer = 0f;
             m_coyoteTimer = 0f;
             m_ignoreJumpUntilReleased = true;
@@ -751,7 +832,13 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void ExitClimbState()
     {
-        m_isClimbing = false;
+        // restaurer l'anim si elle était en pause
+        if (m_climbState != ClimbState.None && m_anim != null)
+        {
+            m_anim.speed = m_savedAnimSpeed > 0f ? m_savedAnimSpeed : 1f;
+        }
+
+        m_climbState = ClimbState.None;
         m_currentClimbRope = null;
         
 
@@ -763,7 +850,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
     private void StartSwingWithJoint()
     {
-        if (m_isSwinging || m_isClimbing || m_currentSwingRope == null || m_rb == null) return;
+        if (m_isSwinging || IsAttachedToClimb || m_currentSwingRope == null || m_rb == null) return;
 
         m_isSwinging = true;
         m_isJumping = false;
@@ -825,7 +912,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_swingJoint.spring = 0f;
         m_swingJoint.damper = 0f;
         m_swingJoint.tolerance = 0f;
-        m_swingJoint.enableCollision = false;
+        //m_swing_joint.enableCollision = false;
 
         m_currentSwingRope.SetEndCollidersEnabled(false);
         Transform attachedBone = m_currentRopeCollider != null
@@ -1081,7 +1168,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_landingSoundArmed = true;
             m_airborneTimer = 0f;
             PlayOneShot(m_jumpUpClip, m_jumpVolume);
-            m_anim.SetTrigger("JumpTrigger");
+            if (m_anim != null) m_anim.SetTrigger("JumpTrigger");
             m_jumpTimer = 0f;
             m_coyoteTimer = 0f;
             m_jumpBufferTimer = 0f;
@@ -1154,7 +1241,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         ClimbRope climbRope = other.GetComponentInParent<ClimbRope>();
         if (climbRope == null) climbRope = other.GetComponentInChildren<ClimbRope>();
 
-        if (climbRope != null && !m_isSwinging && !m_isClimbing)
+        if (climbRope != null && !m_isSwinging && !IsAttachedToClimb)
         {
             StartClimb(climbRope);
             return;
@@ -1169,7 +1256,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             m_currentRopeCollider = other;
             Debug.Log("Detecte SwingRope: " + swingRope.name + " (collider=" + other.name + ")");
 
-            if (!m_isSwinging && !m_isClimbing)
+            if (!m_isSwinging && !IsAttachedToClimb)
             {
                 StartSwingWithJoint();
             }
@@ -1184,7 +1271,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         ClimbRope climbRope = other.GetComponentInParent<ClimbRope>();
         if (climbRope == null) climbRope = other.GetComponentInChildren<ClimbRope>();
 
-        if (climbRope != null && climbRope == m_currentClimbRope && !m_isClimbing)
+        if (climbRope != null && climbRope == m_currentClimbRope && !IsAttachedToClimb)
         {
             m_currentClimbRope = null;
             Debug.Log("Left ClimbRope: " + climbRope.name);
@@ -1210,10 +1297,10 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     {
         if (m_anim == null) return;
 
-        bool isWalking = !m_isSwinging && !m_isClimbing && m_moveDirection.sqrMagnitude > 0.01f && !(m_runInput != null && m_runInput.action.IsPressed());
-        bool isRunning = !m_isSwinging && !m_isClimbing && (m_runInput != null && m_runInput.action.IsPressed()) && m_moveDirection.sqrMagnitude > 0.1f;
+        bool isWalking = !m_isSwinging && !IsAttachedToClimb && m_moveDirection.sqrMagnitude > 0.01f && !(m_runInput != null && m_runInput.action.IsPressed());
+        bool isRunning = !m_isSwinging && !IsAttachedToClimb && (m_runInput != null && m_runInput.action.IsPressed()) && m_moveDirection.sqrMagnitude > 0.1f;
         bool onGround = m_isGrounded;
-        bool isClimbing = m_isClimbing;
+        bool isClimbing = IsAttachedToClimb;
         bool isSwinging = m_isSwinging;
 
         if (force)
@@ -1231,3 +1318,4 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     }
 
 }
+  
