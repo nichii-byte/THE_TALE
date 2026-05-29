@@ -25,7 +25,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     [SerializeField] private Rigidbody m_rb;
     [SerializeField] private GroundCheck m_groundCheck;
     [SerializeField] private Animator m_anim; 
-    // sauvegarde de la vitesse de l'animator pour pause / reprise
     private float m_savedAnimSpeed = 1f;
 
     [Header("Audio")]
@@ -102,7 +101,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     [SerializeField] private InputActionReference m_moveInput;
     [SerializeField] private InputActionReference m_runInput;
     [SerializeField] private InputActionReference m_jumpInput;
-    [SerializeField] private InputActionReference m_detachInput;
 
     // States
     private bool m_isGrounded;
@@ -158,7 +156,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         if (m_moveInput != null) m_moveInput.action.Enable();
         if (m_runInput != null) m_runInput.action.Enable();
         if (m_jumpInput != null) m_jumpInput.action.Enable();
-        if (m_detachInput != null) m_detachInput.action.Enable();
 
         m_gravity = (-2f * m_jumpHeight) / Mathf.Pow(m_jumpTimeToApex, 2);
         m_jumpVelocity = (2f * m_jumpHeight) / m_jumpTimeToApex;
@@ -703,11 +700,9 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
         if (m_climbState == ClimbState.Climbing)
         {
-            // si plus d'input -> passer en IdleClimb (mettre pause de l'anim)
             if (Mathf.Abs(verticalInput) < idleThreshold)
             {
                 EnterIdleClimb();
-                // garder la position verrouillée
                 SnapToClimbRope(1f - Mathf.Exp(-m_climbSnapSpeed * Time.fixedDeltaTime));
                 return;
             }
@@ -722,15 +717,12 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         }
         else if (m_climbState == ClimbState.Idle)
         {
-            // si input revient -> reprendre la grimpe (reprendre l'anim)
             if (Mathf.Abs(verticalInput) >= idleThreshold)
             {
                 ExitIdleClimb();
-                // laisser la prochaine frame traiter le mouvement normalement
                 return;
             }
 
-            // rester collé à la corde
             SnapToClimbRope(1f - Mathf.Exp(-m_climbSnapSpeed * Time.fixedDeltaTime));
         }
     }
@@ -741,14 +733,12 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
 
         m_climbState = ClimbState.Idle;
 
-        // stopper proprement l'animation (pause)
         if (m_anim != null)
         {
             m_savedAnimSpeed = m_anim.speed;
             m_anim.speed = 0f;
         }
 
-        // couper la velocité pour éviter glissement
         if (m_rb != null)
             m_rb.linearVelocity = Vector3.zero;
     }
@@ -897,7 +887,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_swingJoint.spring = 0f;
         m_swingJoint.damper = 0f;
         m_swingJoint.tolerance = 0f;
-        //m_swing_joint.enableCollision = false;
 
         m_currentSwingRope.SetEndCollidersEnabled(false);
         Transform attachedBone = m_currentRopeCollider != null
