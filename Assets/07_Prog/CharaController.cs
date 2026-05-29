@@ -293,11 +293,6 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_moveDirection = (camForward * input.y + camRight * input.x).normalized;
     }
 
-    private bool WasDetachPressed()
-    {
-        return m_detachInput != null && m_detachInput.action.WasPressedThisFrame();
-    }
-
     private bool WasSwingLaunchPressed()
     {
         return m_jumpInput != null && m_jumpInput.action.WasPressedThisFrame();
@@ -607,21 +602,11 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
             return;
         }
 
-        if (WasDetachPressed())
-        {
-            StopSwing(false);
-        }
     }
 
     private void HandleClimbInput()
     {
         if (!IsAttachedToClimb) return;
-
-        if (WasDetachPressed())
-        {
-            StopClimb(false);
-            return;
-        }
 
         if (m_jumpInput != null && m_jumpInput.action.WasPressedThisFrame())
         {
