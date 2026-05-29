@@ -8451,9 +8451,29 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 684496854}
     m_Modifications:
+    - target: {fileID: 107328182439556327, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 876121913251961843, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1241355819506235372, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1723837470664687703, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 3625648666933321850, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
       propertyPath: m_Name
       value: maison_03 (2)
+      objectReference: {fileID: 0}
+    - target: {fileID: 3625648666933321850, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 4114940874131880640, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
       propertyPath: m_LocalScale.x
@@ -8511,9 +8531,33 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5301068011733382315, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5395783761560580632, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5837861076829130794, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6810336406446088400, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 7079037650347249122, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
       propertyPath: m_Enabled
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8129786781371468555, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8190633705828349176, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
+      propertyPath: m_Layer
+      value: 3
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 4509988177779854214, guid: 656ae41ab1a1dba4faf34a7f6706451c, type: 3}
@@ -10844,7 +10888,7 @@ GameObject:
   m_Component:
   - component: {fileID: 594930313}
   - component: {fileID: 594930314}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: house_colliders (11)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -23621,7 +23665,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1297036369}
   - component: {fileID: 1297036370}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: house_colliders (10)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
