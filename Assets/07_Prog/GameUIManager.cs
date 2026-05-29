@@ -13,6 +13,7 @@ public class GameUIManager : MonoBehaviour
 
     [SerializeField] private GameObject m_levelNameScreen;
     [SerializeField] private Text m_levelNameText;
+    [SerializeField] private Text m_levelNameText2;
 
     [SerializeField] private GameObject m_deathScreen;
 
@@ -26,7 +27,6 @@ public class GameUIManager : MonoBehaviour
     [SerializeField] [Range(0f, 1f)] private float m_gameplayMusicVolume = 0.7f;
 
     [Header("Level flow")]
-    [SerializeField] private string m_levelDisplayName = "LA VILLE";
     [SerializeField] private float m_levelNameDuration = 3f;
 
     private Coroutine m_levelNameRoutine;
@@ -125,7 +125,6 @@ public class GameUIManager : MonoBehaviour
 
     private IEnumerator PlayLevelNameRoutine()
     {
-        if (m_levelNameText != null) m_levelNameText.text = m_levelDisplayName;
         if (m_levelNameScreen != null) m_levelNameScreen.SetActive(false);
 
         Time.timeScale = 0f;
