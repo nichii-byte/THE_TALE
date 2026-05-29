@@ -14,7 +14,23 @@ public class DeathZone : MonoBehaviour
         TryKill(other);
     }
 
+    private void OnTriggerStay(Collider other)
+    {
+        if (!m_useTrigger)
+            return;
+
+        TryKill(other);
+    }
+
     private void OnCollisionEnter(Collision collision)
+    {
+        if (!m_useCollision || collision == null)
+            return;
+
+        TryKill(collision.collider);
+    }
+
+    private void OnCollisionStay(Collision collision)
     {
         if (!m_useCollision || collision == null)
             return;

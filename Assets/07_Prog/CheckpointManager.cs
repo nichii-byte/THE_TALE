@@ -16,9 +16,11 @@ public class CheckpointManager : MonoBehaviour
 
     private Vector3 m_currentSpawnPosition;
     private Quaternion m_currentSpawnRotation = Quaternion.identity;
+    private Checkpoint m_currentCheckpoint;
     private bool m_hasSpawnPoint;
     private bool m_isRespawning;
     private bool m_isLevelCompleted;
+    private bool m_sessionStarted;
 
     public static CheckpointManager Instance => s_instance;
     public bool IsRespawning => m_isRespawning;
@@ -35,7 +37,6 @@ public class CheckpointManager : MonoBehaviour
         s_instance = this;
         ResolvePlayerReference();
         CacheInitialSpawn();
-        EnsureDeathTrackerExists();
     }
 
     private void Start()
@@ -63,14 +64,21 @@ public class CheckpointManager : MonoBehaviour
         }
     }
 
-    public void RegisterCheckpoint(Checkpoint checkpoint)
+    public void RegisterCheckpoint(Checkpoint checkpoint, bool playFeedback = true)
     {
         if (checkpoint == null)
             return;
 
+        bool changedCheckpoint = m_currentCheckpoint != checkpoint;
+        m_currentCheckpoint = checkpoint;
         m_currentSpawnPosition = checkpoint.SpawnPosition;
         m_currentSpawnRotation = checkpoint.SpawnRotation;
         m_hasSpawnPoint = true;
+
+        if (playFeedback && m_sessionStarted && changedCheckpoint)
+        {
+            checkpoint.PlayActivationParticles();
+        }
     }
 
     public void KillPlayer(string deathReason = "Hazard")
@@ -78,8 +86,6 @@ public class CheckpointManager : MonoBehaviour
         if (m_isRespawning || m_isLevelCompleted)
             return;
 
-        // Report death to tracker / UI
-        DeathTracker.Instance?.RecordDeath(deathReason);
         GameUIManager.Instance?.OnPlayerDied(deathReason);
 
         ResolvePlayerReference();
@@ -97,8 +103,14 @@ public class CheckpointManager : MonoBehaviour
         ResolvePlayerReference();
         m_isRespawning = false;
         m_isLevelCompleted = false;
-        ApplyInitialCheckpointOverride();
-        CacheInitialSpawn();
+        m_currentCheckpoint = null;
+        m_hasSpawnPoint = false;
+
+        if (!ApplyInitialCheckpointOverride())
+        {
+            CacheInitialSpawn();
+        }
+
         ResetRuntimeObjects();
 
         if (m_player != null && m_hasSpawnPoint)
@@ -110,8 +122,7 @@ public class CheckpointManager : MonoBehaviour
     // Public method to be called by UI when the player presses Play
     public void BeginSession()
     {
-        EnsureDeathTrackerExists();
-        DeathTracker.Instance?.ResetCounts();
+        m_sessionStarted = true;
         ResetSessionState();
     }
 
@@ -142,6 +153,7 @@ public class CheckpointManager : MonoBehaviour
 
         ResetRuntimeObjects();
         m_isRespawning = false;
+        PlayCurrentCheckpointFeedback();
     }
 
     private void ResolvePlayerReference()
@@ -168,17 +180,19 @@ public class CheckpointManager : MonoBehaviour
         m_hasSpawnPoint = true;
     }
 
-    private void ApplyInitialCheckpointOverride()
+    private bool ApplyInitialCheckpointOverride()
     {
         Checkpoint[] checkpoints = FindObjectsByType<Checkpoint>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         for (int i = 0; i < checkpoints.Length; i++)
         {
             if (checkpoints[i] != null && checkpoints[i].IsInitialCheckpoint)
             {
-                RegisterCheckpoint(checkpoints[i]);
-                return;
+                RegisterCheckpoint(checkpoints[i], false);
+                return true;
             }
         }
+
+        return false;
     }
 
     private void ResetRuntimeObjects()
@@ -193,12 +207,9 @@ public class CheckpointManager : MonoBehaviour
         }
     }
 
-    private void EnsureDeathTrackerExists()
+    private void PlayCurrentCheckpointFeedback()
     {
-        if (DeathTracker.Instance != null)
-            return;
-
-        GameObject trackerObject = new GameObject("DeathTracker");
-        trackerObject.AddComponent<DeathTracker>();
+        if (m_sessionStarted && m_currentCheckpoint != null)
+            m_currentCheckpoint.PlayActivationParticles();
     }
 }

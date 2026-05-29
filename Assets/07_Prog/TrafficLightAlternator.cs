@@ -1,4 +1,5 @@
 using System.Collections;
+using System;
 using UnityEngine;
 
 public class TrafficLightAlternator : MonoBehaviour, IRuntimeResettable
@@ -13,6 +14,9 @@ public class TrafficLightAlternator : MonoBehaviour, IRuntimeResettable
 
     private Coroutine m_cycleRoutine;
     private bool m_isGreenActive;
+
+    public event Action<bool> StateChanged;
+    public bool IsGreenActive => m_isGreenActive;
 
     private void Awake()
     {
@@ -64,6 +68,8 @@ public class TrafficLightAlternator : MonoBehaviour, IRuntimeResettable
 
         if (m_redLight != null)
             m_redLight.enabled = !isGreenActive;
+
+        StateChanged?.Invoke(m_isGreenActive);
     }
 
     private void StopCycle()

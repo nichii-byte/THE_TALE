@@ -15,17 +15,21 @@ public class GameUIManager : MonoBehaviour
     [SerializeField] private Text m_levelNameText;
 
     [SerializeField] private GameObject m_deathScreen;
-    [SerializeField] private Text m_deathCountText;
 
     [SerializeField] private GameObject m_endScreen;
+
+    [Header("Audio")]
+    [SerializeField] private AudioSource m_musicSource;
+    [SerializeField] private AudioClip m_mainMenuMusic;
+    [SerializeField] private AudioClip m_gameplayMusic;
+    [SerializeField] [Range(0f, 1f)] private float m_mainMenuMusicVolume = 0.7f;
+    [SerializeField] [Range(0f, 1f)] private float m_gameplayMusicVolume = 0.7f;
 
     [Header("Level flow")]
     [SerializeField] private string m_levelDisplayName = "LA VILLE";
     [SerializeField] private float m_levelNameDuration = 3f;
-    [SerializeField] private float m_deathCountDisplayDuration = 2f;
 
     private Coroutine m_levelNameRoutine;
-    private Coroutine m_deathScreenRoutine;
 
     public bool CanProcessGameplayInput { get; private set; }
 
@@ -44,7 +48,6 @@ public class GameUIManager : MonoBehaviour
             m_quitButton.onClick.AddListener(OnQuitPressed);
 
         ShowMainMenu();
-        RefreshDeathCount();
     }
 
     private void OnDestroy()
@@ -59,7 +62,6 @@ public class GameUIManager : MonoBehaviour
     public void ShowMainMenu()
     {
         StopLevelNameRoutine();
-        StopDeathScreenRoutine();
 
         CanProcessGameplayInput = false;
         Time.timeScale = 0f;
@@ -69,6 +71,8 @@ public class GameUIManager : MonoBehaviour
         if (m_levelNameScreen != null) m_levelNameScreen.SetActive(false);
         if (m_deathScreen != null) m_deathScreen.SetActive(false);
         if (m_endScreen != null) m_endScreen.SetActive(false);
+
+        PlayMusic(m_mainMenuMusic, m_mainMenuMusicVolume);
     }
 
     public void OnPlayPressed()
@@ -76,32 +80,29 @@ public class GameUIManager : MonoBehaviour
         if (m_levelNameRoutine != null)
             return;
 
-        StopDeathScreenRoutine();
         CanProcessGameplayInput = false;
         if (m_mainMenuScreen != null) m_mainMenuScreen.SetActive(false);
         if (m_deathScreen != null) m_deathScreen.SetActive(false);
         if (m_endScreen != null) m_endScreen.SetActive(false);
 
         CheckpointManager.Instance?.BeginSession();
-        RefreshDeathCount();
+        PlayMusic(m_gameplayMusic, m_gameplayMusicVolume);
 
         m_levelNameRoutine = StartCoroutine(PlayLevelNameRoutine());
     }
 
-    public void OnPlayerDied(string reason)
+    public void OnPlayerDied(string _)
     {
-        RefreshDeathCount();
-
         if (m_endScreen != null && m_endScreen.activeSelf)
             return;
 
-        ShowDeathCountTemporarily();
+        if (m_deathScreen != null)
+            m_deathScreen.SetActive(false);
     }
 
     public void OnLevelCompleted()
     {
         StopLevelNameRoutine();
-        StopDeathScreenRoutine();
 
         CanProcessGameplayInput = false;
         Time.timeScale = 0f;
@@ -142,15 +143,6 @@ public class GameUIManager : MonoBehaviour
         m_levelNameRoutine = null;
     }
 
-    private void RefreshDeathCount()
-    {
-        if (m_deathCountText == null)
-            return;
-
-        int totalDeaths = DeathTracker.Instance != null ? DeathTracker.Instance.TotalDeaths : 0;
-        m_deathCountText.text = "Morts: " + totalDeaths;
-    }
-
     private void StopLevelNameRoutine()
     {
         if (m_levelNameRoutine == null)
@@ -160,38 +152,42 @@ public class GameUIManager : MonoBehaviour
         m_levelNameRoutine = null;
     }
 
-    private void ShowDeathCountTemporarily()
-    {
-        if (m_deathScreen == null)
-            return;
-
-        StopDeathScreenRoutine();
-        m_deathScreen.SetActive(true);
-        m_deathScreenRoutine = StartCoroutine(HideDeathScreenAfterDelay());
-    }
-
-    private IEnumerator HideDeathScreenAfterDelay()
-    {
-        yield return new WaitForSecondsRealtime(Mathf.Max(0f, m_deathCountDisplayDuration));
-
-        if (m_deathScreen != null)
-            m_deathScreen.SetActive(false);
-
-        m_deathScreenRoutine = null;
-    }
-
-    private void StopDeathScreenRoutine()
-    {
-        if (m_deathScreenRoutine == null)
-            return;
-
-        StopCoroutine(m_deathScreenRoutine);
-        m_deathScreenRoutine = null;
-    }
-
     private static void SetCursorState(bool gameplayActive)
     {
         Cursor.lockState = gameplayActive ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !gameplayActive;
+    }
+
+    private void PlayMusic(AudioClip clip, float volume)
+    {
+        EnsureMusicSource();
+        if (m_musicSource == null)
+            return;
+
+        m_musicSource.playOnAwake = false;
+        m_musicSource.loop = true;
+        m_musicSource.volume = Mathf.Clamp01(volume);
+
+        if (clip == null)
+        {
+            m_musicSource.Stop();
+            m_musicSource.clip = null;
+            return;
+        }
+
+        if (m_musicSource.clip == clip && m_musicSource.isPlaying)
+            return;
+
+        m_musicSource.clip = clip;
+        m_musicSource.Play();
+    }
+
+    private void EnsureMusicSource()
+    {
+        if (m_musicSource == null)
+            m_musicSource = GetComponent<AudioSource>();
+
+        if (m_musicSource == null)
+            m_musicSource = gameObject.AddComponent<AudioSource>();
     }
 }

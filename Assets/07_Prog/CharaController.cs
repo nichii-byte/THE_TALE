@@ -24,12 +24,16 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
     [SerializeField] private AudioClip[] m_stepClips;
     [SerializeField] private AudioClip m_jumpUpClip;
     [SerializeField] private AudioClip m_jumpDownClip;
+    [SerializeField] private AudioClip m_swingRopeGrabClip;
+    [SerializeField] private AudioClip m_climbRopeGrabClip;
     [SerializeField] private float m_walkStepInterval = 0.38f;
     [SerializeField] private float m_runStepInterval = 0.24f;
     [SerializeField] private float m_minStepSpeed = 0.2f;
     [SerializeField] private float m_minLandingAirTime = 0.08f;
     [SerializeField] [Range(0f, 1f)] private float m_stepVolume = 0.8f;
     [SerializeField] [Range(0f, 1f)] private float m_jumpVolume = 0.9f;
+    [SerializeField] [Range(0f, 1f)] private float m_swingRopeGrabVolume = 0.85f;
+    [SerializeField] [Range(0f, 1f)] private float m_climbRopeGrabVolume = 0.85f;
 
     [Header("Movement")]
     [SerializeField] private float m_acceleration = 30f;
@@ -659,6 +663,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_jumpBufferTimer = 0f;
         m_rb.useGravity = false;
         m_rb.linearVelocity = Vector3.zero;
+        PlayOneShot(m_climbRopeGrabClip, m_climbRopeGrabVolume);
 
         m_climbParam = climbRope.GetClosestPointParam(transform.position);
 
@@ -764,6 +769,7 @@ public class CharaController : MonoBehaviour, IRuntimeResettable
         m_isJumping = false;
         m_jumpTimer = 0f;
         m_rb.useGravity = true;
+        PlayOneShot(m_swingRopeGrabClip, m_swingRopeGrabVolume);
 
         if (m_swingJoint == null)
         {

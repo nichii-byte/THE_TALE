@@ -38,11 +38,18 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     [SerializeField] private float m_initialTimerDelay = 0f;
     [SerializeField] private float m_triggerDelay = 0f;
 
+    [Header("Traffic Light Sync")]
+    [SerializeField] private bool m_syncTimerWithTrafficLight = false;
+    [SerializeField] private TrafficLightAlternator m_trafficLight;
+    [SerializeField] private bool m_autoFindTrafficLight = true;
+
     private Vector3 m_defaultRetractedLocalPosition;
     private Transform[] m_resolvedMovingRoots;
     private Vector3[] m_resolvedMovingRootWorldOffsets;
     private Coroutine m_sequenceRoutine;
     private Coroutine m_timerRoutine;
+    private Coroutine m_trafficLightMoveRoutine;
+    private TrafficLightAlternator m_subscribedTrafficLight;
     private float m_lastTriggerTime = float.NegativeInfinity;
     private readonly HashSet<Collider> m_playerActivationColliders = new HashSet<Collider>();
 
@@ -73,6 +80,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     private void OnDisable()
     {
         StopRuntimeCoroutines();
+        UnsubscribeFromTrafficLight();
     }
 
     private void OnTriggerEnter(Collider other)
@@ -98,6 +106,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     private void ResetRuntimeState(bool triggerAfterReset)
     {
         StopRuntimeCoroutines();
+        UnsubscribeFromTrafficLight();
         m_lastTriggerTime = float.NegativeInfinity;
         m_playerActivationColliders.Clear();
 
@@ -106,7 +115,11 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         SetDamageState(false);
         SetHandLocalPosition(GetRetractedLocalPosition());
 
-        if (m_activationMode == ActivationMode.Timer && isActiveAndEnabled)
+        if (ShouldSyncWithTrafficLight())
+        {
+            SetupTrafficLightSync();
+        }
+        else if (m_activationMode == ActivationMode.Timer && isActiveAndEnabled)
         {
             m_timerRoutine = StartCoroutine(TimerRoutine());
         }
@@ -193,6 +206,12 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
             StopCoroutine(m_timerRoutine);
             m_timerRoutine = null;
         }
+
+        if (m_trafficLightMoveRoutine != null)
+        {
+            StopCoroutine(m_trafficLightMoveRoutine);
+            m_trafficLightMoveRoutine = null;
+        }
     }
 
     private void ApplyActivationTriggerState()
@@ -231,6 +250,91 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     {
         if (m_damageCollider != null)
             m_damageCollider.enabled = isActive;
+    }
+
+    private bool ShouldSyncWithTrafficLight()
+    {
+        return m_activationMode == ActivationMode.Timer && m_syncTimerWithTrafficLight;
+    }
+
+    private void SetupTrafficLightSync()
+    {
+        TrafficLightAlternator trafficLight = ResolveTrafficLight();
+        if (trafficLight == null)
+        {
+            Debug.LogWarning("EmergingHandsTrap: traffic light sync is enabled but no TrafficLightAlternator was found.", this);
+            return;
+        }
+
+        m_subscribedTrafficLight = trafficLight;
+        m_subscribedTrafficLight.StateChanged += HandleTrafficLightStateChanged;
+        ApplyTrafficLightState(m_subscribedTrafficLight.IsGreenActive, true);
+    }
+
+    private TrafficLightAlternator ResolveTrafficLight()
+    {
+        if (m_trafficLight != null)
+            return m_trafficLight;
+
+        if (!m_autoFindTrafficLight)
+            return null;
+
+        m_trafficLight = GetComponentInParent<TrafficLightAlternator>();
+        if (m_trafficLight == null)
+            m_trafficLight = FindFirstObjectByType<TrafficLightAlternator>();
+
+        return m_trafficLight;
+    }
+
+    private void UnsubscribeFromTrafficLight()
+    {
+        if (m_subscribedTrafficLight == null)
+            return;
+
+        m_subscribedTrafficLight.StateChanged -= HandleTrafficLightStateChanged;
+        m_subscribedTrafficLight = null;
+    }
+
+    private void HandleTrafficLightStateChanged(bool isGreenActive)
+    {
+        ApplyTrafficLightState(isGreenActive, false);
+    }
+
+    private void ApplyTrafficLightState(bool isGreenActive, bool snap)
+    {
+        if (!isActiveAndEnabled || m_handRoot == null)
+            return;
+
+        if (m_trafficLightMoveRoutine != null)
+        {
+            StopCoroutine(m_trafficLightMoveRoutine);
+            m_trafficLightMoveRoutine = null;
+        }
+
+        Vector3 targetPosition = isGreenActive ? GetRetractedLocalPosition() : GetExtendedLocalPosition();
+        bool shouldDamage = !isGreenActive;
+
+        if (snap)
+        {
+            SetDamageState(false);
+            SetHandLocalPosition(targetPosition);
+            SetDamageState(shouldDamage);
+            return;
+        }
+
+        float moveDuration = isGreenActive ? m_retractDuration : m_extendDuration;
+        m_trafficLightMoveRoutine = StartCoroutine(MoveToTrafficLightStateRoutine(targetPosition, shouldDamage, moveDuration));
+    }
+
+    private IEnumerator MoveToTrafficLightStateRoutine(Vector3 targetPosition, bool shouldDamage, float duration)
+    {
+        SetDamageState(false);
+
+        Vector3 startPosition = m_handRoot.localPosition;
+        yield return MoveHand(startPosition, targetPosition, duration);
+
+        SetDamageState(shouldDamage);
+        m_trafficLightMoveRoutine = null;
     }
 
     private Vector3 GetRetractedLocalPosition()
@@ -364,7 +468,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     {
         if (duration <= 0f)
         {
-            m_handRoot.localPosition = to;
+            SetHandLocalPosition(to);
             yield break;
         }
 
