@@ -37119,7 +37119,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1269796040723947144, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
       propertyPath: m_LocalScale.x
-      value: 19.724756
+      value: 3.5506086
       objectReference: {fileID: 0}
     - target: {fileID: 1269796040723947144, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
       propertyPath: m_LocalScale.y
@@ -37131,7 +37131,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1269796040723947144, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -767.2067
+      value: -767.2
       objectReference: {fileID: 0}
     - target: {fileID: 1269796040723947144, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
       propertyPath: m_LocalPosition.y
@@ -37139,7 +37139,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1269796040723947144, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -470.52863
+      value: -474.6
       objectReference: {fileID: 0}
     - target: {fileID: 1269796040723947144, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
       propertyPath: m_LocalRotation.w
@@ -37172,6 +37172,38 @@ PrefabInstance:
     - target: {fileID: 1933425681513579570, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
       propertyPath: m_Name
       value: Wooden Bridge 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3885655019501916976, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 8.396761
+      objectReference: {fileID: 0}
+    - target: {fileID: 3885655019501916976, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -2.45
+      objectReference: {fileID: 0}
+    - target: {fileID: 3885655019501916976, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.37
+      objectReference: {fileID: 0}
+    - target: {fileID: 3885655019501916976, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 10.42
+      objectReference: {fileID: 0}
+    - target: {fileID: 7340265646680944386, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 49.102863
+      objectReference: {fileID: 0}
+    - target: {fileID: 7340265646680944386, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -2.41
+      objectReference: {fileID: 0}
+    - target: {fileID: 7340265646680944386, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.22
+      objectReference: {fileID: 0}
+    - target: {fileID: 7340265646680944386, guid: 09ded84552c15104cb473adb27aa1ae8, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 24.06
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
