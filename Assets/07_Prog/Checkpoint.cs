@@ -11,6 +11,8 @@ public class Checkpoint : MonoBehaviour, IRuntimeResettable
     [SerializeField] private ParticleSystem[] m_activationParticles;
     [SerializeField] [Min(0f)] private float m_particlePlayDuration = 3f;
     [SerializeField] private bool m_createFallbackParticles = true;
+    [SerializeField] private AudioClip m_activationClip;
+    [SerializeField] [Range(0f, 1f)] private float m_activationVolume = 1f;
 
     private Coroutine m_particleRoutine;
     private ParticleSystem m_fallbackParticles;
@@ -62,7 +64,16 @@ public class Checkpoint : MonoBehaviour, IRuntimeResettable
         if (m_particleRoutine != null)
             StopCoroutine(m_particleRoutine);
 
+        PlayActivationSound();
         m_particleRoutine = StartCoroutine(PlayActivationParticlesRoutine());
+    }
+
+    private void PlayActivationSound()
+    {
+        if (m_activationClip == null)
+            return;
+
+        AudioSource.PlayClipAtPoint(m_activationClip, SpawnPosition, m_activationVolume);
     }
 
     public void ResetRuntimeState()

@@ -95,9 +95,14 @@ MonoBehaviour:
   m_holdDuration: Infinity
   m_retractDuration: 0.22
   m_retriggerCooldown: 0.1
+  m_activationClip: {fileID: 8300000, guid: 5cca58367d5c5bd4988989dab8421519, type: 3}
+  m_activationVolume: 0.413
   m_timerInterval: 2
   m_initialTimerDelay: 0
   m_triggerDelay: 0
+  m_syncTimerWithTrafficLight: 0
+  m_trafficLight: {fileID: 0}
+  m_autoFindTrafficLight: 1
 --- !u!1 &1075151893933143049
 GameObject:
   m_ObjectHideFlags: 0

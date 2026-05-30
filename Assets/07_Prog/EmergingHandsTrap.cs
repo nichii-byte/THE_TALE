@@ -33,6 +33,10 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     [SerializeField] private float m_retractDuration = 0.22f;
     [SerializeField] private float m_retriggerCooldown = 0.1f;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip m_activationClip;
+    [SerializeField] [Range(0f, 1f)] private float m_activationVolume = 1f;
+
     [Header("Timer")]
     [SerializeField] private float m_timerInterval = 2f;
     [SerializeField] private float m_initialTimerDelay = 0f;
@@ -147,6 +151,7 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         }
 
         m_lastTriggerTime = Time.time;
+        PlayActivationSound();
         m_sequenceRoutine = StartCoroutine(EmergeRoutine());
     }
 
@@ -313,6 +318,11 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
 
         Vector3 targetPosition = isGreenActive ? GetRetractedLocalPosition() : GetExtendedLocalPosition();
         bool shouldDamage = !isGreenActive;
+
+        if (!isGreenActive && !snap)
+        {
+            PlayActivationSound();
+        }
 
         if (snap)
         {
@@ -482,5 +492,14 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         }
 
         SetHandLocalPosition(to);
+    }
+
+    private void PlayActivationSound()
+    {
+        if (m_activationClip == null)
+            return;
+
+        Vector3 soundPosition = m_handRoot != null ? m_handRoot.position : transform.position;
+        AudioSource.PlayClipAtPoint(m_activationClip, soundPosition, m_activationVolume);
     }
 }
