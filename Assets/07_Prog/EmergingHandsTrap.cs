@@ -151,7 +151,6 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
         }
 
         m_lastTriggerTime = Time.time;
-        PlayActivationSound();
         m_sequenceRoutine = StartCoroutine(EmergeRoutine());
     }
 
@@ -451,6 +450,8 @@ public class EmergingHandsTrap : MonoBehaviour, IRuntimeResettable
     {
         if (m_handRoot == null)
             yield break;
+
+        PlayActivationSound();
 
         Vector3 retractedPosition = GetRetractedLocalPosition();
         Vector3 extendedPosition = GetExtendedLocalPosition();
