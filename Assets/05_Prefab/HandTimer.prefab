@@ -270,7 +270,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2667809401494972686, guid: c0dd7bad5c5654cddaebde42c943b2b6, type: 3}
       propertyPath: m_activationVolume
-      value: 0.333
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2667809401494972686, guid: c0dd7bad5c5654cddaebde42c943b2b6, type: 3}
       propertyPath: m_activationTrigger

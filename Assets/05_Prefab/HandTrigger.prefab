@@ -96,7 +96,7 @@ MonoBehaviour:
   m_retractDuration: 0.22
   m_retriggerCooldown: 0.1
   m_activationClip: {fileID: 8300000, guid: 5cca58367d5c5bd4988989dab8421519, type: 3}
-  m_activationVolume: 0.413
+  m_activationVolume: 1
   m_timerInterval: 2
   m_initialTimerDelay: 0
   m_triggerDelay: 0
